@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users } from 'lucide-react'
+import { Trash2, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../contexts/AuthContext'
 import { Skeleton } from '../../components/Skeleton'
+import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 
 const ROLES = ['apprenante', 'formateur', 'admin']
@@ -14,6 +16,8 @@ const roleBadge = {
 
 export default function AdminUsers() {
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
+  const { user: currentUser } = useAuth()
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['admin-users'],
@@ -35,6 +39,27 @@ export default function AdminUsers() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
   })
 
+  const deleteUser = useMutation({
+    mutationFn: async (id) => {
+      const { error } = await supabase.functions.invoke('delete-user', { body: { userId: id } })
+      if (error) {
+        const body = await error.context?.json?.().catch(() => null)
+        throw new Error(body?.error ?? error.message)
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+  })
+
+  const handleDelete = async (id, name) => {
+    const ok = await confirm({
+      title: 'Supprimer cet utilisateur ?',
+      description: `Le compte de "${name}" sera définitivement supprimé (profil, progression, résultats). Cette action est irréversible.`,
+      confirmLabel: 'Supprimer',
+      danger: true,
+    })
+    if (ok) deleteUser.mutate(id)
+  }
+
   return (
     <div>
 
@@ -47,6 +72,10 @@ export default function AdminUsers() {
           {isLoading ? '—' : users?.length} compte{users?.length !== 1 ? 's' : ''} inscrit{users?.length !== 1 ? 's' : ''}
         </p>
       </div>
+
+      {deleteUser.isError && (
+        <p className="text-xs text-destructive mb-4">Erreur : {deleteUser.error?.message}</p>
+      )}
 
       {isLoading && (
         <div className="space-y-3">
@@ -69,11 +98,13 @@ export default function AdminUsers() {
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Utilisateur</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inscription</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rôle</th>
+                  <th className="px-6 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {users.map((user, i) => {
                   const initials = user.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+                  const isSelf = user.id === currentUser?.id
                   return (
                     <tr
                       key={user.id}
@@ -103,6 +134,17 @@ export default function AdminUsers() {
                           {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                         </select>
                       </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => handleDelete(user.id, user.name)}
+                          disabled={isSelf}
+                          aria-label={`Supprimer l'utilisateur ${user.name}`}
+                          title={isSelf ? 'Vous ne pouvez pas supprimer votre propre compte' : undefined}
+                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -114,6 +156,7 @@ export default function AdminUsers() {
           <div className="sm:hidden divide-y divide-border/50">
             {users.map((user) => {
               const initials = user.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
+              const isSelf = user.id === currentUser?.id
               return (
                 <div key={user.id} className="p-4 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
@@ -132,6 +175,14 @@ export default function AdminUsers() {
                   >
                     {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
+                  <button
+                    onClick={() => handleDelete(user.id, user.name)}
+                    disabled={isSelf}
+                    aria-label={`Supprimer l'utilisateur ${user.name}`}
+                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               )
             })}
