@@ -1,0 +1,120 @@
+import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router'
+import { Users, BookOpen, Clock, TrendingUp, ArrowRight, Activity } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import { Skeleton } from '../../components/Skeleton'
+import { StatCard } from '../../components/ui/StatCard'
+
+export default function AdminDashboard() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: async () => {
+      const [usersRes, publishedRes, draftRes, progressRes] = await Promise.all([
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('published', true),
+        supabase.from('courses').select('id', { count: 'exact', head: true }).eq('published', false),
+        supabase.from('progress').select('id', { count: 'exact', head: true }).eq('completed', true),
+      ])
+      return {
+        users: usersRes.count ?? 0,
+        published: publishedRes.count ?? 0,
+        drafts: draftRes.count ?? 0,
+        completions: progressRes.count ?? 0,
+      }
+    },
+  })
+
+  const cards = [
+    { label: 'Utilisateurs inscrits', value: stats?.users, icon: Users, bg: 'bg-primary/10', border: 'border-primary/20', color: 'text-primary', to: '/admin/utilisateurs' },
+    { label: 'Cours publiés', value: stats?.published, icon: BookOpen, bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', color: 'text-emerald-500', to: '/admin/cours' },
+    { label: 'Brouillons', value: stats?.drafts, icon: Clock, bg: 'bg-amber-500/10', border: 'border-amber-500/20', color: 'text-amber-500', to: null },
+    { label: 'Leçons complétées', value: stats?.completions, icon: TrendingUp, bg: 'bg-violet-500/10', border: 'border-violet-500/20', color: 'text-violet-500', to: null },
+  ]
+
+  return (
+    <div>
+
+      <div className="mb-6 sm:mb-8">
+        <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
+          Administration
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Vue d'ensemble</h1>
+        <p className="text-muted-foreground mt-1 text-sm">Statistiques en temps réel de la plateforme LearnIT.</p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-10">
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)
+          : cards.map(({ label, value, icon, bg, border, color, to }, i) => (
+              <StatCard
+                key={label}
+                icon={icon}
+                label={label}
+                value={value ?? 0}
+                color={color}
+                bg={bg}
+                border={border}
+                to={to}
+                delay={i * 60}
+                trailing={to && <ArrowRight className={`w-4 h-4 ${color} opacity-40 group-hover:opacity-100 transition-opacity`} />}
+              />
+            ))
+        }
+      </div>
+
+      {/* Actions rapides */}
+      <div className="mb-4">
+        <div className="inline-flex items-center gap-2 bg-muted border border-border text-muted-foreground text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+          Actions rapides
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <Link
+          to="/admin/suivi"
+          className="bg-card rounded-2xl border border-border p-5 sm:p-6 flex items-center gap-4 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8 transition-all duration-200 group col-span-full sm:col-span-2"
+        >
+          <div className="w-11 h-11 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
+            <Activity className="w-5 h-5 text-emerald-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-foreground mb-0.5">Suivi en direct des exercices</p>
+            <p className="text-sm text-muted-foreground hidden sm:block">Voyez les résultats des apprenants en temps réel dès qu'ils soumettent un exercice.</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <ArrowRight className="w-4 h-4 text-emerald-500 opacity-40 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </Link>
+        <Link
+          to="/admin/utilisateurs"
+          className="bg-card rounded-2xl border border-border p-5 sm:p-6 flex items-center gap-4 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8 transition-all duration-200 group"
+        >
+          <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-foreground mb-0.5">Gérer les utilisateurs</p>
+            <p className="text-sm text-muted-foreground hidden sm:block">Consultez les comptes et modifiez les rôles.</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-primary opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+        </Link>
+
+        <Link
+          to="/admin/cours"
+          className="bg-card rounded-2xl border border-border p-5 sm:p-6 flex items-center gap-4 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8 transition-all duration-200 group"
+        >
+          <div className="w-11 h-11 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
+            <BookOpen className="w-5 h-5 text-emerald-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-foreground mb-0.5">Gérer les cours</p>
+            <p className="text-sm text-muted-foreground hidden sm:block">Publiez, dépubliez ou supprimez des cours.</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-emerald-500 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
+        </Link>
+      </div>
+
+    </div>
+  )
+}
