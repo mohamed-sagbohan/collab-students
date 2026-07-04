@@ -5,7 +5,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { IconBadge } from '../../components/ui/IconBadge'
 import { FormField } from '../../components/ui/FormField'
-import { Button } from '../../components/ui/Button'
+import { Button, buttonVariants } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -105,10 +106,7 @@ export default function ResetPassword() {
         <p className="text-sm text-muted-foreground mb-6">
           Ce lien de réinitialisation est invalide ou a expiré. Veuillez en demander un nouveau.
         </p>
-        <Link
-          to="/forgot-password"
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-        >
+        <Link to="/forgot-password" className={buttonVariants()}>
           Demander un nouveau lien
         </Link>
       </div>
@@ -140,10 +138,10 @@ export default function ResetPassword() {
         <FormField label="Nouveau mot de passe">
           {(id, aria) => (
             <div className="relative">
-              <input
+              <Input
                 id={id}
                 type={showPwd ? 'text' : 'password'}
-                className="w-full px-4 py-2.5 pr-11 border border-input rounded-xl text-sm bg-muted text-foreground placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
+                className="pr-11"
                 placeholder="6 caractères minimum"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -168,10 +166,9 @@ export default function ResetPassword() {
 
         <FormField label="Confirmer le mot de passe">
           {(id, aria) => (
-            <input
+            <Input
               id={id}
               type={showPwd ? 'text' : 'password'}
-              className="w-full px-4 py-2.5 border border-input rounded-xl text-sm bg-muted text-foreground placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
               placeholder="Répétez le mot de passe"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
@@ -191,7 +188,7 @@ export default function ResetPassword() {
                   key={i}
                   className={`h-1 flex-1 rounded-full transition-all ${
                     password.length >= i * 4
-                      ? i === 1 ? 'bg-red-400' : i === 2 ? 'bg-amber-400' : 'bg-emerald-500'
+                      ? i === 1 ? 'bg-destructive' : i === 2 ? 'bg-warning' : 'bg-success'
                       : 'bg-muted'
                   }`}
                 />

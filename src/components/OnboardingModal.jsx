@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { GraduationCap, BookOpen, Zap, Award, ArrowRight, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Dialog } from './ui/Dialog'
+import { Button } from './ui/Button'
 
 const LS_KEY = 'learnit_onboarded'
 
@@ -116,13 +117,10 @@ export default function OnboardingModal() {
         </div>
 
         {/* CTA */}
-        <button
-          onClick={isLast ? finish : () => setStep((s) => s + 1)}
-          className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground px-5 py-3 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
-        >
+        <Button size="lg" onClick={isLast ? finish : () => setStep((s) => s + 1)} className="w-full font-bold">
           {s.cta}
           <ArrowRight className="w-4 h-4" aria-hidden="true" />
-        </button>
+        </Button>
       </div>
     </Dialog>
   )

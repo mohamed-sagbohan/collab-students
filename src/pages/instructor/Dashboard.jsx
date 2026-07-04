@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
-import { BookOpen, Eye, EyeOff, PlusCircle, Activity, Users } from 'lucide-react'
+import { BookOpen, Eye, Activity, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { StatCard } from '../../components/ui/StatCard'
+import { buttonVariants } from '../../components/ui/Button'
+import { PublishBadge } from '../../components/ui/StatusBadge'
 
 export default function InstructorDashboard() {
   // Charge tous les cours publiés accessibles (pas seulement ceux du formateur)
@@ -55,11 +57,8 @@ export default function InstructorDashboard() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Tableau de bord</h1>
           <p className="text-muted-foreground mt-1 text-sm">Vue d'ensemble du catalogue et des apprenants.</p>
         </div>
-        <Link
-          to="/formateur/suivi"
-          className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25 shrink-0"
-        >
-          <Activity className="w-4 h-4" />
+        <Link to="/formateur/suivi" className={`${buttonVariants()} shrink-0`}>
+          <Activity className="w-4 h-4" aria-hidden="true" />
           Suivi en direct
         </Link>
       </div>
@@ -142,16 +141,7 @@ export default function InstructorDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        course.published
-                          ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                      }`}>
-                        {course.published
-                          ? <><Eye className="w-3 h-3" /> Publié</>
-                          : <><EyeOff className="w-3 h-3" /> Brouillon</>
-                        }
-                      </span>
+                      <PublishBadge published={course.published} />
                     </td>
                   </tr>
                 ))}
@@ -165,13 +155,7 @@ export default function InstructorDashboard() {
               <div key={course.id} className="p-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <p className="font-semibold text-foreground text-sm leading-snug">{course.title}</p>
-                  <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                    course.published
-                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                      : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                  }`}>
-                    {course.published ? <><Eye className="w-3 h-3" />Publié</> : <><EyeOff className="w-3 h-3" />Brouillon</>}
-                  </span>
+                  <PublishBadge published={course.published} className="shrink-0" />
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">

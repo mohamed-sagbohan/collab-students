@@ -2,6 +2,8 @@ import { Link } from 'react-router'
 import { BookOpen, Zap, TrendingUp, ArrowRight, CheckCircle, GraduationCap, Sparkles, Shield, Users, Lock } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
 import Reveal from '../components/Reveal'
+import { buttonVariants } from '../components/ui/Button'
+import { cn } from '../lib/utils'
 
 const features = [
   {
@@ -70,10 +72,7 @@ export default function Landing() {
             >
               Connexion
             </Link>
-            <Link
-              to="/register"
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-            >
+            <Link to="/register" className={buttonVariants()}>
               S'inscrire
             </Link>
           </div>
@@ -109,11 +108,8 @@ export default function Landing() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-8">
-                <Link
-                  to="/register"
-                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-6 py-3.5 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
-                >
-                  Commencer gratuitement <ArrowRight className="w-4 h-4" />
+                <Link to="/register" className={buttonVariants({ size: 'lg' })}>
+                  Commencer gratuitement <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </Link>
                 <Link
                   to="/login"
@@ -297,9 +293,9 @@ export default function Landing() {
               </p>
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-bold text-base hover:opacity-90 transition-opacity shadow-xl shadow-primary/30"
+                className={cn(buttonVariants({ size: 'lg' }), 'h-14 px-8 text-base font-bold shadow-xl shadow-primary/30')}
               >
-                Créer mon compte <ArrowRight className="w-5 h-5" />
+                Créer mon compte <ArrowRight className="w-5 h-5" aria-hidden="true" />
               </Link>
             </div>
           </Reveal>

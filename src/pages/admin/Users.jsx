@@ -5,6 +5,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Skeleton } from '../../components/Skeleton'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Avatar } from '../../components/ui/Avatar'
+import { useToast } from '../../components/ui/Toast'
 
 const ROLES = ['apprenante', 'formateur', 'admin']
 
@@ -17,6 +19,7 @@ const roleBadge = {
 export default function AdminUsers() {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
+  const toast = useToast()
   const { user: currentUser } = useAuth()
 
   const { data: users, isLoading } = useQuery({
@@ -36,7 +39,11 @@ export default function AdminUsers() {
       const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      toast.success(`Rôle mis à jour : ${variables.role}.`)
+    },
+    onError: () => toast.error('Impossible de modifier le rôle. Réessayez.'),
   })
 
   const deleteUser = useMutation({
@@ -47,7 +54,11 @@ export default function AdminUsers() {
         throw new Error(body?.error ?? error.message)
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      toast.success('Utilisateur supprimé.')
+    },
+    onError: () => toast.error("Impossible de supprimer l'utilisateur. Réessayez."),
   })
 
   const handleDelete = async (id, name) => {
@@ -103,7 +114,6 @@ export default function AdminUsers() {
               </thead>
               <tbody className="divide-y divide-border/50">
                 {users.map((user, i) => {
-                  const initials = user.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
                   const isSelf = user.id === currentUser?.id
                   return (
                     <tr
@@ -113,9 +123,7 @@ export default function AdminUsers() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
-                            {initials}
-                          </div>
+                          <Avatar name={user.name} className="w-9 h-9" />
                           <div>
                             <p className="font-semibold text-foreground">{user.name}</p>
                             <p className="text-xs text-muted-foreground font-mono">{user.id.slice(0, 8)}…</p>
@@ -155,13 +163,10 @@ export default function AdminUsers() {
           {/* Cards mobile */}
           <div className="sm:hidden divide-y divide-border/50">
             {users.map((user) => {
-              const initials = user.name?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
               const isSelf = user.id === currentUser?.id
               return (
                 <div key={user.id} className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
-                    {initials}
-                  </div>
+                  <Avatar name={user.name} size="lg" />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-foreground text-sm truncate">{user.name}</p>
                     <p className="text-xs text-muted-foreground">

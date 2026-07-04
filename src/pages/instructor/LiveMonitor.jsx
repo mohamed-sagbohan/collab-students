@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { StatCard } from '../../components/ui/StatCard'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { Avatar } from '../../components/ui/Avatar'
+import { Button } from '../../components/ui/Button'
 
 function exportResultsCSV(results) {
   if (!results?.length) return
@@ -74,10 +76,6 @@ function timeAgo(dateStr) {
   return `il y a ${h}h`
 }
 
-function initials(name) {
-  return (name ?? '?').split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
-}
-
 export default function LiveMonitor() {
   const [connected, setConnected] = useState(false)
   const [newIds, setNewIds] = useState(new Set())
@@ -142,14 +140,15 @@ export default function LiveMonitor() {
           <p className="text-muted-foreground mt-1 text-sm">Résultats d'exercices en temps réel.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
+          <Button
+            variant="secondary"
             onClick={() => exportResultsCSV(results)}
             disabled={!results?.length}
-            className="inline-flex items-center gap-2 bg-card border border-border text-foreground px-3.5 py-2 rounded-xl text-sm font-semibold hover:border-primary/40 disabled:opacity-40 transition-colors"
+            aria-label="Exporter les résultats en CSV"
           >
-            <Download className="w-4 h-4 text-primary" />
+            <Download className="w-4 h-4 text-primary" aria-hidden="true" />
             <span className="hidden sm:inline">Exporter CSV</span>
-          </button>
+          </Button>
           <div className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border ${
             connected
               ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
@@ -215,9 +214,7 @@ export default function LiveMonitor() {
                   }`}
                 >
                   {/* Avatar */}
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
-                    {initials(result.profiles?.name)}
-                  </div>
+                  <Avatar name={result.profiles?.name} className="w-9 h-9" />
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">

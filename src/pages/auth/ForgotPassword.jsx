@@ -6,6 +6,7 @@ import { translateAuthError } from '../../lib/authErrors'
 import { IconBadge } from '../../components/ui/IconBadge'
 import { FormField } from '../../components/ui/FormField'
 import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
 
 export default function ForgotPassword() {
   const { sendPasswordReset } = useAuth()
@@ -64,10 +65,9 @@ export default function ForgotPassword() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Adresse email">
           {(id, aria) => (
-            <input
+            <Input
               id={id}
               type="email"
-              className="w-full px-4 py-2.5 border border-input rounded-xl text-sm bg-muted text-foreground placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
               placeholder="vous@exemple.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

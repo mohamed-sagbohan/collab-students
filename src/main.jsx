@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
+import { ToastProvider } from './components/ui/Toast'
 import { router } from './routes'
 import './index.css'
 
@@ -21,7 +22,9 @@ createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <ConfirmProvider>
-            <RouterProvider router={router} />
+            <ToastProvider>
+              <RouterProvider router={router} />
+            </ToastProvider>
           </ConfirmProvider>
         </AuthProvider>
         <ReactQueryDevtools initialIsOpen={false} />

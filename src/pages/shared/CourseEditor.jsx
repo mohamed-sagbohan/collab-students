@@ -3,24 +3,21 @@ import { Link, useLocation } from 'react-router'
 import { BookOpen, Plus, Eye, EyeOff, Trash2, Pencil, PlusCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { cn } from '../../lib/utils'
+import { accentFor } from '../../lib/accents'
 import { Skeleton } from '../../components/Skeleton'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
-
-const CARD_ACCENTS = [
-  { bg: 'bg-primary/10', border: 'border-primary/20', icon: 'text-primary' },
-  { bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: 'text-amber-500' },
-  { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: 'text-emerald-500' },
-  { bg: 'bg-violet-500/10', border: 'border-violet-500/20', icon: 'text-violet-500' },
-  { bg: 'bg-rose-500/10', border: 'border-rose-500/20', icon: 'text-rose-500' },
-  { bg: 'bg-sky-500/10', border: 'border-sky-500/20', icon: 'text-sky-500' },
-]
+import { buttonVariants } from '../../components/ui/Button'
+import { PublishBadge } from '../../components/ui/StatusBadge'
+import { useToast } from '../../components/ui/Toast'
 
 export default function CourseEditor() {
   const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const location = useLocation()
   const confirm = useConfirm()
+  const toast = useToast()
   const isAdmin = profile?.role === 'admin'
   const base = isAdmin ? '/admin/editeur' : '/formateur/editeur'
 
@@ -48,7 +45,11 @@ export default function CourseEditor() {
       const { error } = await supabase.from('courses').update({ published: !published }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['editor-courses', user?.id] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['editor-courses', user?.id] })
+      toast.success(variables.published ? 'Cours dépublié.' : 'Cours publié !')
+    },
+    onError: () => toast.error('Impossible de modifier la publication. Réessayez.'),
   })
 
   const deleteCourse = useMutation({
@@ -56,7 +57,11 @@ export default function CourseEditor() {
       const { error } = await supabase.from('courses').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['editor-courses', user?.id] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['editor-courses', user?.id] })
+      toast.success('Cours supprimé.')
+    },
+    onError: () => toast.error('Impossible de supprimer le cours. Réessayez.'),
   })
 
   return (
@@ -75,9 +80,9 @@ export default function CourseEditor() {
         </div>
         <Link
           to={`${base}/nouveau`}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25 shrink-0 w-full sm:w-auto justify-center"
+          className={cn(buttonVariants(), 'shrink-0 w-full sm:w-auto')}
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4" aria-hidden="true" />
           Nouveau cours
         </Link>
       </div>
@@ -95,11 +100,8 @@ export default function CourseEditor() {
           description="Créez votre premier cours et ajoutez-y des leçons."
           className="p-10 sm:p-14"
           action={
-            <Link
-              to={`${base}/nouveau`}
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
-            >
-              <Plus className="w-4 h-4" /> Créer un cours
+            <Link to={`${base}/nouveau`} className={buttonVariants()}>
+              <Plus className="w-4 h-4" aria-hidden="true" /> Créer un cours
             </Link>
           }
         />
@@ -108,7 +110,7 @@ export default function CourseEditor() {
       {!isLoading && courses?.length > 0 && (
         <div className="space-y-3">
           {courses.map((course, i) => {
-            const accent = CARD_ACCENTS[i % CARD_ACCENTS.length]
+            const accent = accentFor(i)
             return (
             <div
               key={course.id}
@@ -124,13 +126,7 @@ export default function CourseEditor() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-bold text-foreground text-sm">{course.title}</p>
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    course.published
-                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                      : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                  }`}>
-                    {course.published ? <><Eye className="w-2.5 h-2.5" /> Publié</> : <><EyeOff className="w-2.5 h-2.5" /> Brouillon</>}
-                  </span>
+                  <PublishBadge published={course.published} />
                 </div>
                 {course.description && (
                   <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-sm">{course.description}</p>

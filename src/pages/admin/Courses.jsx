@@ -4,10 +4,12 @@ import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { useToast } from '../../components/ui/Toast'
 
 export default function AdminCourses() {
   const queryClient = useQueryClient()
   const confirm = useConfirm()
+  const toast = useToast()
 
   const { data: courses, isLoading } = useQuery({
     queryKey: ['admin-courses'],
@@ -33,7 +35,11 @@ export default function AdminCourses() {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-courses'] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-courses'] })
+      toast.success(variables.published ? 'Cours dépublié.' : 'Cours publié !')
+    },
+    onError: () => toast.error('Impossible de modifier la publication. Réessayez.'),
   })
 
   const deleteCourse = useMutation({
@@ -41,7 +47,11 @@ export default function AdminCourses() {
       const { error } = await supabase.from('courses').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-courses'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-courses'] })
+      toast.success('Cours supprimé.')
+    },
+    onError: () => toast.error('Impossible de supprimer le cours. Réessayez.'),
   })
 
   const handleDelete = async (id, title) => {
@@ -120,8 +130,8 @@ export default function AdminCourses() {
                         onClick={() => togglePublished.mutate({ id: course.id, published: course.published })}
                         className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                           course.published
-                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
-                            : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                            ? 'bg-success/10 text-success border-success/20 hover:bg-success/20'
+                            : 'bg-warning/10 text-warning border-warning/20 hover:bg-warning/20'
                         }`}
                       >
                         {course.published
@@ -166,8 +176,8 @@ export default function AdminCourses() {
                   onClick={() => togglePublished.mutate({ id: course.id, published: course.published })}
                   className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                     course.published
-                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                      : 'bg-muted text-muted-foreground border-border'
+                      ? 'bg-success/10 text-success border-success/20'
+                      : 'bg-warning/10 text-warning border-warning/20'
                   }`}
                 >
                   {course.published

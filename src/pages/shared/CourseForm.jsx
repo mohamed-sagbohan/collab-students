@@ -6,6 +6,9 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
+import { Button, buttonVariants } from '../../components/ui/Button'
+import { useToast } from '../../components/ui/Toast'
+import { cn } from '../../lib/utils'
 
 export default function CourseForm() {
   const { courseId } = useParams()
@@ -13,6 +16,7 @@ export default function CourseForm() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const confirm = useConfirm()
+  const toast = useToast()
   const titleId = useId()
   const descId = useId()
   const isNew = courseId === 'nouveau'
@@ -88,6 +92,7 @@ export default function CourseForm() {
       setTimeout(() => setSaved(false), 2000)
       if (isNew) navigate(`${base}/${newId}`, { replace: true })
     },
+    onError: () => toast.error("Impossible d'enregistrer le cours. Réessayez."),
   })
 
   // Suppression leçon
@@ -96,7 +101,11 @@ export default function CourseForm() {
       const { error } = await supabase.from('lessons').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['editor-lessons', courseId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['editor-lessons', courseId] })
+      toast.success('Leçon supprimée.')
+    },
+    onError: () => toast.error('Impossible de supprimer la leçon. Réessayez.'),
   })
 
   // Réordonner deux leçons (échange leur order_index)
@@ -108,6 +117,7 @@ export default function CourseForm() {
       if (e2) throw e2
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['editor-lessons', courseId] }),
+    onError: () => toast.error("Impossible de réordonner les leçons. Réessayez."),
   })
 
   function moveLesson(index, direction) {
@@ -165,7 +175,7 @@ export default function CourseForm() {
             type="button"
             onClick={() => setPublished((p) => !p)}
             className={`relative w-10 h-[22px] rounded-full border transition-colors ${
-              published ? 'bg-emerald-500 border-emerald-500' : 'bg-muted border-border'
+              published ? 'bg-success border-success' : 'bg-muted border-border'
             }`}
           >
             <span
@@ -176,20 +186,20 @@ export default function CourseForm() {
           </button>
           <span className="text-sm font-medium text-foreground">
             {published
-              ? <span className="text-emerald-500 flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Publié — visible par les apprenants</span>
+              ? <span className="text-success flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Publié — visible par les apprenants</span>
               : <span className="text-muted-foreground flex items-center gap-1"><EyeOff className="w-3.5 h-3.5" /> Brouillon — non visible</span>
             }
           </span>
         </div>
 
-        <button
+        <Button
           onClick={() => saveCourse.mutate()}
-          disabled={!title.trim() || saveCourse.isPending}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity shadow-lg shadow-primary/25"
+          disabled={!title.trim()}
+          loading={saveCourse.isPending}
         >
-          <Save className="w-4 h-4" />
+          {!saveCourse.isPending && <Save className="w-4 h-4" aria-hidden="true" />}
           {saveCourse.isPending ? 'Enregistrement…' : saved ? '✓ Enregistré !' : 'Enregistrer le cours'}
-        </button>
+        </Button>
       </div>
 
       {/* Section leçons (uniquement si le cours existe déjà) */}
@@ -203,9 +213,9 @@ export default function CourseForm() {
             </h2>
             <Link
               to={`${base}/${courseId}/lecons/nouveau`}
-              className="inline-flex items-center gap-1.5 bg-card border border-border text-foreground px-3.5 py-2 rounded-xl text-xs font-semibold hover:border-primary/40 transition-colors"
+              className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'rounded-xl')}
             >
-              <Plus className="w-3.5 h-3.5 text-primary" />
+              <Plus className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
               Ajouter une leçon
             </Link>
           </div>

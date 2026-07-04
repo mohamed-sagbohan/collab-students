@@ -3,18 +3,10 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Skeleton } from './Skeleton'
 import { Lock } from 'lucide-react'
-
-const COLOR_MAP = {
-  orange:  { bg: 'bg-orange-500/10',  border: 'border-orange-500/20',  text: 'text-orange-400' },
-  amber:   { bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   text: 'text-amber-400' },
-  emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-400' },
-  blue:    { bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    text: 'text-blue-400' },
-  violet:  { bg: 'bg-violet-500/10',  border: 'border-violet-500/20',  text: 'text-violet-400' },
-  rose:    { bg: 'bg-rose-500/10',    border: 'border-rose-500/20',    text: 'text-rose-400' },
-}
+import { BADGE_COLORS } from '../lib/accents'
 
 function BadgeCard({ badge, earned, earnedAt, delay = 0 }) {
-  const colors = COLOR_MAP[badge.color] ?? COLOR_MAP.amber
+  const colors = BADGE_COLORS[badge.color] ?? BADGE_COLORS.amber
 
   return (
     <div

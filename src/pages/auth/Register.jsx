@@ -6,6 +6,7 @@ import { translateAuthError } from '../../lib/authErrors'
 import { IconBadge } from '../../components/ui/IconBadge'
 import { FormField } from '../../components/ui/FormField'
 import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
 
 export default function Register() {
   const { register } = useAuth()
@@ -33,7 +34,7 @@ export default function Register() {
   if (success) {
     return (
       <div className="text-center">
-        <IconBadge icon={CheckCircle} size="lg" color="text-emerald-500" bg="bg-emerald-500/10" className="mx-auto mb-5" />
+        <IconBadge icon={CheckCircle} size="lg" color="text-success" bg="bg-success/10" className="mx-auto mb-5" />
         <h2 className="text-xl font-bold text-foreground mb-2">Vérifiez votre email</h2>
         <p className="text-muted-foreground text-sm mb-6">
           Un lien de confirmation a été envoyé à <strong className="text-foreground">{form.email}</strong>.
@@ -57,10 +58,9 @@ export default function Register() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Votre prénom">
           {(id, aria) => (
-            <input
+            <Input
               id={id}
               type="text"
-              className="w-full px-4 py-2.5 border border-input rounded-xl text-sm bg-muted text-foreground placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
               placeholder="Marie"
               value={form.name}
               onChange={update('name')}
@@ -73,10 +73,9 @@ export default function Register() {
 
         <FormField label="Adresse email">
           {(id, aria) => (
-            <input
+            <Input
               id={id}
               type="email"
-              className="w-full px-4 py-2.5 border border-input rounded-xl text-sm bg-muted text-foreground placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
               placeholder="marie@exemple.com"
               value={form.email}
               onChange={update('email')}
@@ -89,10 +88,9 @@ export default function Register() {
 
         <FormField label="Mot de passe" hint="6 caractères minimum">
           {(id, aria) => (
-            <input
+            <Input
               id={id}
               type="password"
-              className="w-full px-4 py-2.5 border border-input rounded-xl text-sm bg-muted text-foreground placeholder:text-muted-foreground focus:bg-card focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
               placeholder="6 caractères minimum"
               value={form.password}
               onChange={update('password')}

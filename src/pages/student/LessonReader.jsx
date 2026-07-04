@@ -6,6 +6,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
 import { Skeleton } from '../../components/Skeleton'
+import { Button } from '../../components/ui/Button'
+import { useToast } from '../../components/ui/Toast'
 import ExerciseRunner from '../../components/exercises/ExerciseRunner'
 import { useKeyboardType, KeyboardSelector, KeyboardCheatSheet } from '../../components/KeyboardSetup'
 import LessonComments from '../../components/LessonComments'
@@ -14,6 +16,7 @@ export default function LessonReader() {
   const { courseId, lessonId } = useParams()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [kbType, selectKb, resetKb] = useKeyboardType()
   const [readProgress, setReadProgress] = useState(0)
 
@@ -69,6 +72,7 @@ export default function LessonReader() {
       queryClient.invalidateQueries({ queryKey: ['progress'] })
       queryClient.invalidateQueries({ queryKey: ['progress-stats'] })
     },
+    onError: () => toast.error("Impossible d'enregistrer votre progression. Vérifiez votre connexion et réessayez."),
   })
 
   // Vérifie si la leçon contient au moins un exercice de dactylographie
@@ -158,14 +162,14 @@ export default function LessonReader() {
               <p className="font-bold text-foreground text-sm mb-0.5">Vous avez terminé cette leçon ?</p>
               <p className="text-xs text-muted-foreground">Validez pour enregistrer votre progression.</p>
             </div>
-            <button
+            <Button
               onClick={() => markComplete.mutate()}
-              disabled={markComplete.isPending}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 active:opacity-80 disabled:opacity-50 transition-opacity shadow-lg shadow-primary/25 shrink-0 w-full sm:w-auto justify-center"
+              loading={markComplete.isPending}
+              className="shrink-0 w-full sm:w-auto"
             >
-              <CheckCircle className="w-4 h-4" />
+              {!markComplete.isPending && <CheckCircle className="w-4 h-4" aria-hidden="true" />}
               {markComplete.isPending ? 'Enregistrement...' : 'Marquer comme terminée'}
-            </button>
+            </Button>
           </div>
         )}
       </div>

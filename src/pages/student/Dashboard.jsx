@@ -4,6 +4,7 @@ import { BookOpen, CheckCircle, TrendingUp, ArrowRight, Flame, Zap } from 'lucid
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
+import { buttonVariants } from '../../components/ui/Button'
 import BadgeGrid from '../../components/BadgeGrid'
 import OnboardingModal from '../../components/OnboardingModal'
 
@@ -105,11 +106,8 @@ export default function StudentDashboard() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2">{profile?.name} 👋</h1>
           <p className="text-muted-foreground text-sm mb-5 max-w-sm">Continuez votre apprentissage là où vous vous êtes arrêté.</p>
-          <Link
-            to="/cours"
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
-          >
-            Voir le catalogue <ArrowRight className="w-4 h-4" />
+          <Link to="/cours" className={buttonVariants()}>
+            Voir le catalogue <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </Link>
         </div>
       </div>
@@ -214,11 +212,8 @@ export default function StudentDashboard() {
           </div>
           <h2 className="text-lg font-bold text-foreground mb-2">Commencez votre première leçon</h2>
           <p className="text-sm text-muted-foreground mb-6 max-w-xs mx-auto">Explorez le catalogue et choisissez le cours qui vous correspond.</p>
-          <Link
-            to="/cours"
-            className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
-          >
-            Explorer les cours <ArrowRight className="w-4 h-4" />
+          <Link to="/cours" className={buttonVariants()}>
+            Explorer les cours <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </Link>
         </div>
       )}

@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, NavLink } from 'react-router'
+import { Link } from 'react-router'
 import { GraduationCap, BookOpen, LayoutDashboard, ChevronDown, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import SearchBar from './SearchBar'
 import NotificationBell from './NotificationBell'
+import { NavItem } from './ui/NavItem'
+import { Avatar } from './ui/Avatar'
 
 export default function Navbar() {
   const { profile, logout } = useAuth()
@@ -18,9 +20,6 @@ export default function Navbar() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
-  const initials = profile?.name
-    ?.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
 
   return (
     <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-md border-b border-border">
@@ -36,28 +35,20 @@ export default function Navbar() {
 
         {/* Nav */}
         <nav className="flex items-center gap-0.5">
-          <NavLink
+          <NavItem
             to="/dashboard"
-            className={({ isActive }) =>
-              `flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs sm:text-sm font-medium border-b-2 transition-colors ${
-                isActive ? 'bg-primary/10 text-primary border-primary' : 'text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-              }`
-            }
-          >
-            <LayoutDashboard className="w-4 h-4 shrink-0" />
-            <span className="hidden md:block">Tableau de bord</span>
-          </NavLink>
-          <NavLink
+            icon={LayoutDashboard}
+            label="Tableau de bord"
+            className="gap-1.5 px-2.5 text-xs sm:text-sm"
+            labelClassName="hidden md:block"
+          />
+          <NavItem
             to="/cours"
-            className={({ isActive }) =>
-              `flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs sm:text-sm font-medium border-b-2 transition-colors ${
-                isActive ? 'bg-primary/10 text-primary border-primary' : 'text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-              }`
-            }
-          >
-            <BookOpen className="w-4 h-4 shrink-0" />
-            <span className="hidden md:block">Cours</span>
-          </NavLink>
+            icon={BookOpen}
+            label="Cours"
+            className="gap-1.5 px-2.5 text-xs sm:text-sm"
+            labelClassName="hidden md:block"
+          />
         </nav>
 
         {/* Recherche (centre, flexible) */}
@@ -78,9 +69,7 @@ export default function Navbar() {
               onClick={() => setMenuOpen((o) => !o)}
               className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl hover:bg-muted transition-colors"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground text-xs font-bold">
-                {initials}
-              </div>
+              <Avatar name={profile?.name} size="sm" className="sm:w-8 sm:h-8" />
               <div className="hidden sm:block text-left">
                 <p className="text-xs font-semibold text-foreground leading-none">{profile?.name}</p>
                 <p className="text-xs text-muted-foreground capitalize mt-0.5">{profile?.role}</p>

@@ -4,6 +4,8 @@ import { XCircle, CheckCircle, Play, RotateCcw, Trophy, Target, ChevronRight, Al
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Skeleton } from '../Skeleton'
+import { Button } from '../ui/Button'
+import { useToast } from '../ui/Toast'
 import ExerciseTimer from '../ExerciseTimer'
 import TypingExercise from './TypingExercise'
 
@@ -208,12 +210,9 @@ function QuizResults({ questions, qcmResult, timeUp, onRetry }) {
         ))}
       </div>
 
-      <button
-        onClick={onRetry}
-        className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-      >
-        <RotateCcw className="w-4 h-4" /> Réessayer
-      </button>
+      <Button size="lg" onClick={onRetry} className="w-full">
+        <RotateCcw className="w-4 h-4" aria-hidden="true" /> Réessayer
+      </Button>
     </div>
   )
 }
@@ -262,21 +261,15 @@ function ExerciseIdle({ exercise, questionCount, onStart, onStartTraining }) {
       )}
 
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-        <button
-          onClick={onStart}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-7 py-3.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg shadow-primary/25"
-        >
-          <Play className="w-4 h-4" />
+        <Button size="lg" onClick={onStart} className="px-7 font-bold">
+          <Play className="w-4 h-4" aria-hidden="true" />
           {hasDactylo ? 'Mode examen' : 'Commencer l\'exercice'}
-        </button>
+        </Button>
         {hasDactylo && (
-          <button
-            onClick={onStartTraining}
-            className="inline-flex items-center gap-2 bg-card border border-border text-foreground px-7 py-3.5 rounded-xl text-sm font-bold hover:bg-muted transition-colors"
-          >
-            <BookOpen className="w-4 h-4 text-primary" />
+          <Button size="lg" variant="secondary" onClick={onStartTraining} className="px-7 font-bold">
+            <BookOpen className="w-4 h-4 text-primary" aria-hidden="true" />
             Mode entraînement
-          </button>
+          </Button>
         )}
       </div>
 
@@ -294,6 +287,7 @@ function ExerciseIdle({ exercise, questionCount, onStart, onStartTraining }) {
 ══════════════════════════════════════════════════════════════ */
 export default function ExerciseRunner({ exerciseId, onComplete }) {
   const { user } = useAuth()
+  const toast = useToast()
   const [phase, setPhase] = useState('idle')
   const [trainingMode, setTrainingMode] = useState(false)
   const [timerStarted, setTimerStarted] = useState(false)
@@ -325,10 +319,11 @@ export default function ExerciseRunner({ exerciseId, onComplete }) {
     })
     if (error) {
       console.warn('submit_qcm_result:', error.message)
+      toast.error("Impossible d'enregistrer vos réponses. Vérifiez votre connexion et réessayez.")
       return
     }
     setQcmResult(data)
-  }, [user?.id, exerciseId, exercise?.questions])
+  }, [user?.id, exerciseId, exercise?.questions, toast])
 
   const handleAnswer = (questionId, answer) => {
     if (!timerStarted) setTimerStarted(true)
@@ -366,10 +361,15 @@ export default function ExerciseRunner({ exerciseId, onComplete }) {
         wpm: result.wpm,
         accuracy: result.accuracy,
         elapsed_sec: result.elapsedSec,
-      }).then(({ error }) => { if (error) console.warn('exercise_results insert:', error.message) })
+      }).then(({ error }) => {
+        if (error) {
+          console.warn('exercise_results insert:', error.message)
+          toast.error("Votre résultat n'a pas pu être enregistré. Vérifiez votre connexion.")
+        }
+      })
     }
     onComplete?.()
-  }, [user?.id, exerciseId, onComplete])
+  }, [user?.id, exerciseId, onComplete, toast])
 
   const handleRetry = () => {
     setPhase('idle')
@@ -488,14 +488,15 @@ export default function ExerciseRunner({ exerciseId, onComplete }) {
               onSelect={(ans) => handleAnswer(currentQuestion.id, ans)}
               disabled={timeUp}
             />
-            <button
+            <Button
+              size="lg"
               onClick={handleNext}
               disabled={!answers[currentQuestion.id]}
-              className="mt-5 w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-5 w-full"
             >
               {currentIndex === questions.length - 1 ? 'Terminer' : 'Question suivante'}
-              <ChevronRight className="w-4 h-4" />
-            </button>
+              <ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </Button>
           </div>
         ) : currentQuestion?.type === 'vrai_faux' ? (
           <div>

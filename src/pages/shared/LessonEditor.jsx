@@ -6,6 +6,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
 import { Skeleton } from '../../components/Skeleton'
+import { Button } from '../../components/ui/Button'
+import { useToast } from '../../components/ui/Toast'
 
 function extractVideoId(url) {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)
@@ -56,6 +58,7 @@ export default function LessonEditor() {
   const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const toast = useToast()
   const isNew = lessonId === 'nouveau'
   const isAdmin = profile?.role === 'admin'
   const base = isAdmin ? '/admin/editeur' : '/formateur/editeur'
@@ -129,6 +132,7 @@ export default function LessonEditor() {
       setTimeout(() => setSaved(false), 2000)
       if (isNew) navigate(`${base}/${courseId}`, { replace: true })
     },
+    onError: () => toast.error("Impossible d'enregistrer la leçon. Réessayez."),
   })
 
   function insertVideo() {
@@ -316,14 +320,14 @@ export default function LessonEditor() {
 
       {/* Sauvegarde */}
       <div className="flex items-center gap-3">
-        <button
+        <Button
           onClick={() => saveLesson.mutate()}
-          disabled={!title.trim() || saveLesson.isPending}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity shadow-lg shadow-primary/25"
+          disabled={!title.trim()}
+          loading={saveLesson.isPending}
         >
-          <Save className="w-4 h-4" />
+          {!saveLesson.isPending && <Save className="w-4 h-4" aria-hidden="true" />}
           {saveLesson.isPending ? 'Enregistrement…' : saved ? '✓ Enregistrée !' : 'Enregistrer la leçon'}
-        </button>
+        </Button>
         {saveLesson.isError && (
           <p className="text-xs text-destructive">Erreur : {saveLesson.error?.message}</p>
         )}

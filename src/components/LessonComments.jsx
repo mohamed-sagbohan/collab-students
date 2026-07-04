@@ -5,6 +5,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Skeleton } from './Skeleton'
 import { EmptyState } from './ui/EmptyState'
+import { Avatar } from './ui/Avatar'
+import { Button } from './ui/Button'
+import { useToast } from './ui/Toast'
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -23,6 +26,7 @@ function initials(name) {
 function CommentForm({ lessonId, parentId = null, parentAuthor = null, onCancel, onSuccess }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [content, setContent] = useState('')
 
   const { mutate, isPending } = useMutation({
@@ -40,13 +44,12 @@ function CommentForm({ lessonId, parentId = null, parentAuthor = null, onCancel,
       queryClient.invalidateQueries({ queryKey: ['comments', lessonId] })
       onSuccess?.()
     },
+    onError: () => toast.error("Impossible d'envoyer votre commentaire. Réessayez."),
   })
 
   return (
     <div className="flex gap-3">
-      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0 mt-1">
-        {initials(user?.email)}
-      </div>
+      <Avatar name={user?.email} size="sm" className="sm:w-8 sm:h-8 mt-1" />
       <div className="flex-1">
         {parentAuthor && (
           <p className="text-xs text-primary font-medium mb-1.5 flex items-center gap-1">
@@ -62,14 +65,15 @@ function CommentForm({ lessonId, parentId = null, parentAuthor = null, onCancel,
           className="w-full bg-muted border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:bg-card resize-none transition-colors"
         />
         <div className="flex items-center gap-2 mt-2">
-          <button
+          <Button
+            size="sm"
             onClick={() => mutate()}
-            disabled={!content.trim() || isPending}
-            className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+            disabled={!content.trim()}
+            loading={isPending}
           >
-            <Send className="w-3 h-3" />
+            {!isPending && <Send className="w-3 h-3" aria-hidden="true" />}
             {isPending ? 'Envoi…' : 'Envoyer'}
-          </button>
+          </Button>
           {onCancel && (
             <button
               onClick={onCancel}
@@ -87,6 +91,7 @@ function CommentForm({ lessonId, parentId = null, parentAuthor = null, onCancel,
 function CommentItem({ comment, lessonId, allComments }) {
   const { user, profile } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [replying, setReplying] = useState(false)
 
   const isOwn   = user?.id === comment.user_id
@@ -98,7 +103,11 @@ function CommentItem({ comment, lessonId, allComments }) {
       const { error } = await supabase.from('comments').delete().eq('id', comment.id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', lessonId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', lessonId] })
+      toast.success('Commentaire supprimé.')
+    },
+    onError: () => toast.error('Impossible de supprimer ce commentaire. Réessayez.'),
   })
 
   return (

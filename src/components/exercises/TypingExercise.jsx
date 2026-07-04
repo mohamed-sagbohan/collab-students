@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { RotateCcw, Target, Zap, Clock, Lightbulb, MessageSquare, TrendingUp } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { Button } from '../ui/Button'
 
 const LEVELS = [
   { min: 0,  max: 14, label: 'Débutant',      color: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     emoji: '🐢' },
@@ -233,12 +234,9 @@ function TypingResults({ result, text, typed, onRetry, exerciseId, userId }) {
         </div>
       </div>
 
-      <button
-        onClick={onRetry}
-        className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-      >
-        <RotateCcw className="w-4 h-4" /> Réessayer
-      </button>
+      <Button size="lg" onClick={onRetry} className="w-full">
+        <RotateCcw className="w-4 h-4" aria-hidden="true" /> Réessayer
+      </Button>
     </div>
   )
 }

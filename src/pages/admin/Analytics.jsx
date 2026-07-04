@@ -3,6 +3,7 @@ import { BarChart3, Users, BookOpen, Zap, Target, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { StatCard } from '../../components/ui/StatCard'
+import { Button } from '../../components/ui/Button'
 
 function exportCSV(rows, filename) {
   if (!rows.length) return
@@ -169,13 +170,10 @@ export default function AdminAnalytics() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Statistiques de la plateforme</h1>
           <p className="text-muted-foreground mt-1 text-sm">Vue d'ensemble de l'activité des apprenants.</p>
         </div>
-        <button
-          onClick={handleExportAll}
-          className="inline-flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:border-primary/40 transition-colors shrink-0"
-        >
-          <Download className="w-4 h-4 text-primary" />
+        <Button variant="secondary" onClick={handleExportAll} className="shrink-0">
+          <Download className="w-4 h-4 text-primary" aria-hidden="true" />
           Exporter tout (CSV)
-        </button>
+        </Button>
       </div>
 
       {/* Stat cards */}

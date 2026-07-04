@@ -4,6 +4,7 @@ import { BookOpen, ChevronRight, ArrowLeft, CheckCircle, Download, Award, FileTe
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
+import { Button } from '../../components/ui/Button'
 import { downloadCertificate } from '../../lib/certificate'
 import { downloadFiche } from '../../lib/fichePdf'
 
@@ -133,13 +134,13 @@ export default function CourseDetail() {
                   <p className="text-xs text-muted-foreground">Toutes les leçons sont complétées. Téléchargez votre certificat.</p>
                 </div>
               </div>
-              <button
+              <Button
                 onClick={handleDownloadCertificate}
-                className="inline-flex items-center gap-2 bg-amber-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/25 shrink-0 w-full sm:w-auto justify-center"
+                className="bg-warning text-warning-foreground hover:bg-warning/90 shadow-warning/25 shrink-0 w-full sm:w-auto"
               >
-                <Download className="w-4 h-4" />
+                <Download className="w-4 h-4" aria-hidden="true" />
                 Télécharger le certificat
-              </button>
+              </Button>
             </div>
           ) : (
             /* ── En cours ── */
@@ -179,13 +180,10 @@ export default function CourseDetail() {
                 <p className="font-bold text-foreground text-sm">Fiche mémo PDF</p>
                 <p className="text-xs text-muted-foreground mt-0.5">L'essentiel du cours, à imprimer ou conserver hors ligne.</p>
               </div>
-              <button
-                onClick={handleDownloadFiche}
-                className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity shrink-0 w-full sm:w-auto"
-              >
-                <Download className="w-4 h-4" />
+              <Button onClick={handleDownloadFiche} className="shrink-0 w-full sm:w-auto">
+                <Download className="w-4 h-4" aria-hidden="true" />
                 Télécharger
-              </button>
+              </Button>
             </div>
           )}
 

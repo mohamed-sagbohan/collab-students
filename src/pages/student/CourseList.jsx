@@ -4,15 +4,7 @@ import { BookOpen, ArrowRight, Clock } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { EmptyState } from '../../components/ui/EmptyState'
-
-const CARD_ACCENTS = [
-  { bg: 'bg-primary/10', border: 'border-primary/20', icon: 'text-primary', dot: 'bg-primary' },
-  { bg: 'bg-amber-500/10', border: 'border-amber-500/20', icon: 'text-amber-500', dot: 'bg-amber-500' },
-  { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: 'text-emerald-500', dot: 'bg-emerald-500' },
-  { bg: 'bg-violet-500/10', border: 'border-violet-500/20', icon: 'text-violet-500', dot: 'bg-violet-500' },
-  { bg: 'bg-rose-500/10', border: 'border-rose-500/20', icon: 'text-rose-500', dot: 'bg-rose-500' },
-  { bg: 'bg-sky-500/10', border: 'border-sky-500/20', icon: 'text-sky-500', dot: 'bg-sky-500' },
-]
+import { accentFor } from '../../lib/accents'
 
 export default function CourseList() {
   const { data: courses, isLoading, error } = useQuery({
@@ -59,7 +51,7 @@ export default function CourseList() {
       {!isLoading && !error && courses?.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {courses.map((course, i) => {
-            const accent = CARD_ACCENTS[i % CARD_ACCENTS.length]
+            const accent = accentFor(i)
             const count = course.lessons?.[0]?.count ?? 0
 
             return (
