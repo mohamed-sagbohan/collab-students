@@ -7,13 +7,15 @@ import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Avatar } from '../../components/ui/Avatar'
 import { useToast } from '../../components/ui/Toast'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { TableShell, Table, THead, TH, TBody, TR, TD, MobileCards } from '../../components/ui/Table'
 
 const ROLES = ['apprenante', 'formateur', 'admin']
 
 const roleBadge = {
   apprenante: 'bg-primary/10 text-primary border-primary/20',
   formateur: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
-  admin: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  admin: 'bg-warning/10 text-warning border-warning/20',
 }
 
 export default function AdminUsers() {
@@ -74,15 +76,11 @@ export default function AdminUsers() {
   return (
     <div>
 
-      <div className="mb-6 sm:mb-8">
-        <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
-          Administration
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Utilisateurs</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {isLoading ? '—' : users?.length} compte{users?.length !== 1 ? 's' : ''} inscrit{users?.length !== 1 ? 's' : ''}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Administration"
+        title="Utilisateurs"
+        description={`${isLoading ? '—' : users?.length} compte${users?.length !== 1 ? 's' : ''} inscrit${users?.length !== 1 ? 's' : ''}`}
+      />
 
       {deleteUser.isError && (
         <p className="text-xs text-destructive mb-4">Erreur : {deleteUser.error?.message}</p>
@@ -102,26 +100,20 @@ export default function AdminUsers() {
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
 
           {/* Table desktop */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Utilisateur</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Inscription</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rôle</th>
-                  <th className="px-6 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
+          <TableShell stickyHeader>
+            <Table>
+              <THead sticky>
+                <TH>Utilisateur</TH>
+                <TH>Inscription</TH>
+                <TH>Rôle</TH>
+                <TH align="right"><span className="sr-only">Actions</span></TH>
+              </THead>
+              <TBody>
                 {users.map((user, i) => {
                   const isSelf = user.id === currentUser?.id
                   return (
-                    <tr
-                      key={user.id}
-                      style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
-                      className="animate-in fade-in hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="px-6 py-4">
+                    <TR key={user.id} delay={Math.min(i, 12) * 30}>
+                      <TD>
                         <div className="flex items-center gap-3">
                           <Avatar name={user.name} className="w-9 h-9" />
                           <div>
@@ -129,20 +121,21 @@ export default function AdminUsers() {
                             <p className="text-xs text-muted-foreground font-mono">{user.id.slice(0, 8)}…</p>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-muted-foreground text-xs">
+                      </TD>
+                      <TD className="text-muted-foreground text-xs">
                         {new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </td>
-                      <td className="px-6 py-4">
+                      </TD>
+                      <TD>
                         <select
                           value={user.role}
                           onChange={(e) => updateRole.mutate({ id: user.id, role: e.target.value })}
+                          aria-label={`Rôle de ${user.name}`}
                           className={`text-xs font-semibold px-3 py-1.5 rounded-full border cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring/20 bg-transparent ${roleBadge[user.role] ?? 'bg-muted text-foreground border-border'}`}
                         >
                           {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                         </select>
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </TD>
+                      <TD align="right">
                         <button
                           onClick={() => handleDelete(user.id, user.name)}
                           disabled={isSelf}
@@ -150,18 +143,18 @@ export default function AdminUsers() {
                           title={isSelf ? 'Vous ne pouvez pas supprimer votre propre compte' : undefined}
                           className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10 disabled:opacity-30 disabled:pointer-events-none"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
                         </button>
-                      </td>
-                    </tr>
+                      </TD>
+                    </TR>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TBody>
+            </Table>
+          </TableShell>
 
           {/* Cards mobile */}
-          <div className="sm:hidden divide-y divide-border/50">
+          <MobileCards>
             {users.map((user) => {
               const isSelf = user.id === currentUser?.id
               return (
@@ -191,7 +184,7 @@ export default function AdminUsers() {
                 </div>
               )
             })}
-          </div>
+          </MobileCards>
 
         </div>
       )}

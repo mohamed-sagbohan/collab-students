@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Save, Eye, Code2, Video, Bold, Italic, List, ListOrdered, Heading2, Heading3, Link2, Quote, Info } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router'
+import { Save, Eye, Code2, Video, Bold, Italic, List, ListOrdered, Heading2, Heading3, Link2, Quote, Info } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
 import { Skeleton } from '../../components/Skeleton'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
+import { Breadcrumb } from '../../components/ui/Breadcrumb'
 
 function extractVideoId(url) {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)
@@ -132,6 +133,7 @@ export default function LessonEditor() {
       queryClient.invalidateQueries({ queryKey: ['editor-lessons', courseId] })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      toast.success(isNew ? 'Leçon créée !' : 'Leçon enregistrée.')
       if (isNew) navigate(`${base}/${courseId}`, { replace: true })
     },
     onError: () => toast.error("Impossible d'enregistrer la leçon. Réessayez."),
@@ -158,14 +160,13 @@ export default function LessonEditor() {
 
   return (
     <div className="max-w-3xl">
-      {/* Retour */}
-      <Link
-        to={`${base}/${courseId}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
-      >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-        Retour au cours
-      </Link>
+      <Breadcrumb
+        items={[
+          { label: isAdmin ? 'Tous les cours' : 'Mes cours', to: base },
+          { label: 'Cours', to: `${base}/${courseId}` },
+          { label: isNew ? 'Nouvelle leçon' : title || 'Leçon' },
+        ]}
+      />
 
       <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-6">
         {isNew ? 'Nouvelle leçon' : 'Modifier la leçon'}

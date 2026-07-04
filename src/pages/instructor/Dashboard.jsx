@@ -6,6 +6,9 @@ import { Skeleton } from '../../components/Skeleton'
 import { StatCard } from '../../components/ui/StatCard'
 import { buttonVariants } from '../../components/ui/Button'
 import { PublishBadge } from '../../components/ui/StatusBadge'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { TableShell, Table, THead, TH, TBody, TR, TD, MobileCards } from '../../components/ui/Table'
 
 export default function InstructorDashboard() {
   // Charge tous les cours publiés accessibles (pas seulement ceux du formateur)
@@ -49,19 +52,17 @@ export default function InstructorDashboard() {
   return (
     <div>
 
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 sm:mb-8">
-        <div>
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
-            Espace formateur
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Tableau de bord</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Vue d'ensemble du catalogue et des apprenants.</p>
-        </div>
-        <Link to="/formateur/suivi" className={`${buttonVariants()} shrink-0`}>
-          <Activity className="w-4 h-4" aria-hidden="true" />
-          Suivi en direct
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Espace formateur"
+        title="Tableau de bord"
+        description="Vue d'ensemble du catalogue et des apprenants."
+        actions={
+          <Link to="/formateur/suivi" className={buttonVariants()}>
+            <Activity className="w-4 h-4" aria-hidden="true" />
+            Suivi en direct
+          </Link>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
@@ -70,7 +71,7 @@ export default function InstructorDashboard() {
         ) : (
           [
             { label: 'Cours au total', value: courses?.length ?? 0, icon: BookOpen, color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
-            { label: 'Cours publiés', value: published, icon: Eye, color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+            { label: 'Cours publiés', value: published, icon: Eye, color: 'text-success', bg: 'bg-success/10', border: 'border-success/20' },
             { label: "Exercices aujourd'hui", value: activityStats?.today ?? 0, icon: Activity, color: 'text-violet-500', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
             { label: 'Apprenants actifs', value: activityStats?.students ?? 0, icon: Users, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
           ].map((card, i) => <StatCard key={card.label} {...card} delay={i * 60} />)
@@ -101,6 +102,14 @@ export default function InstructorDashboard() {
         </div>
       )}
 
+      {!isLoading && courses?.length === 0 && (
+        <EmptyState
+          icon={BookOpen}
+          title="Aucun cours dans le catalogue"
+          description="Créez votre premier cours depuis l'éditeur pour le voir apparaître ici."
+        />
+      )}
+
       {!isLoading && courses?.length > 0 && (
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-border">
@@ -108,49 +117,43 @@ export default function InstructorDashboard() {
           </div>
 
           {/* Table desktop */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cours</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Formateur</th>
-                  <th className="text-center px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Leçons</th>
-                  <th className="text-center px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Statut</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
+          <TableShell>
+            <Table>
+              <THead>
+                <TH>Cours</TH>
+                <TH>Formateur</TH>
+                <TH align="center">Leçons</TH>
+                <TH align="center">Statut</TH>
+              </THead>
+              <TBody>
                 {courses.map((course, i) => (
-                  <tr
-                    key={course.id}
-                    style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}
-                    className="animate-in fade-in hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="px-6 py-4">
+                  <TR key={course.id} delay={Math.min(i, 10) * 30}>
+                    <TD>
                       <p className="font-semibold text-foreground">{course.title}</p>
                       {course.description && (
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 max-w-xs">{course.description}</p>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">
+                    </TD>
+                    <TD className="text-sm text-muted-foreground">
                       {course.profiles?.name ?? '—'}
-                    </td>
-                    <td className="px-6 py-4 text-center">
+                    </TD>
+                    <TD align="center">
                       <span className="inline-flex items-center gap-1 text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-lg font-medium border border-border">
-                        <BookOpen className="w-3 h-3" />
+                        <BookOpen className="w-3 h-3" aria-hidden="true" />
                         {course.lessons?.[0]?.count ?? 0}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
+                    </TD>
+                    <TD align="center">
                       <PublishBadge published={course.published} />
-                    </td>
-                  </tr>
+                    </TD>
+                  </TR>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TBody>
+            </Table>
+          </TableShell>
 
           {/* Cards mobile */}
-          <div className="sm:hidden divide-y divide-border/50">
+          <MobileCards>
             {courses.map((course) => (
               <div key={course.id} className="p-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -166,7 +169,7 @@ export default function InstructorDashboard() {
                 </div>
               </div>
             ))}
-          </div>
+          </MobileCards>
         </div>
       )}
     </div>

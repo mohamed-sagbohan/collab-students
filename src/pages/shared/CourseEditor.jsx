@@ -11,6 +11,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { buttonVariants } from '../../components/ui/Button'
 import { PublishBadge } from '../../components/ui/StatusBadge'
 import { useToast } from '../../components/ui/Toast'
+import { PageHeader } from '../../components/ui/PageHeader'
 
 export default function CourseEditor() {
   const { user, profile } = useAuth()
@@ -67,25 +68,18 @@ export default function CourseEditor() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-        <div>
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
-            <BookOpen className="w-3.5 h-3.5" />
-            Éditeur de cours
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">
-            {isAdmin ? 'Tous les cours' : 'Mes cours'}
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">Créez et modifiez vos cours et leçons.</p>
-        </div>
-        <Link
-          to={`${base}/nouveau`}
-          className={cn(buttonVariants(), 'shrink-0 w-full sm:w-auto')}
-        >
-          <Plus className="w-4 h-4" aria-hidden="true" />
-          Nouveau cours
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Éditeur de cours"
+        eyebrowIcon={BookOpen}
+        title={isAdmin ? 'Tous les cours' : 'Mes cours'}
+        description="Créez et modifiez vos cours et leçons."
+        actions={
+          <Link to={`${base}/nouveau`} className={cn(buttonVariants(), 'w-full sm:w-auto')}>
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            Nouveau cours
+          </Link>
+        }
+      />
 
       {isLoading && (
         <div className="space-y-3">

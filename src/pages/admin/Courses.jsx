@@ -5,6 +5,8 @@ import { Skeleton } from '../../components/Skeleton'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { useToast } from '../../components/ui/Toast'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { TableShell, Table, THead, TH, TBody, TR, TD, MobileCards } from '../../components/ui/Table'
 
 export default function AdminCourses() {
   const queryClient = useQueryClient()
@@ -69,15 +71,11 @@ export default function AdminCourses() {
   return (
     <div>
 
-      <div className="mb-6 sm:mb-8">
-        <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
-          Administration
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Cours</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {isLoading ? '—' : `${courses?.length} cours · ${published} publiés`}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Administration"
+        title="Cours"
+        description={isLoading ? '—' : `${courses?.length} cours · ${published} publiés`}
+      />
 
       {isLoading && (
         <div className="space-y-3">
@@ -97,37 +95,32 @@ export default function AdminCourses() {
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
 
           {/* Table desktop */}
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cours</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Formateur</th>
-                  <th className="text-center px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Leçons</th>
-                  <th className="text-center px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Statut</th>
-                  <th className="px-6 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
+          <TableShell stickyHeader>
+            <Table>
+              <THead sticky>
+                <TH>Cours</TH>
+                <TH>Formateur</TH>
+                <TH align="center">Leçons</TH>
+                <TH align="center">Statut</TH>
+                <TH align="right"><span className="sr-only">Actions</span></TH>
+              </THead>
+              <TBody>
                 {courses.map((course, i) => (
-                  <tr
-                    key={course.id}
-                    style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
-                    className="animate-in fade-in hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="px-6 py-4">
+                  <TR key={course.id} delay={Math.min(i, 12) * 30}>
+                    <TD>
                       <p className="font-semibold text-foreground">{course.title}</p>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 max-w-xs">{course.description}</p>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground text-sm">
+                    </TD>
+                    <TD className="text-muted-foreground text-sm">
                       {course.profiles?.name ?? '—'}
-                    </td>
-                    <td className="px-6 py-4 text-center">
+                    </TD>
+                    <TD align="center">
                       <span className="text-sm font-bold text-foreground">{course.lessons?.length ?? 0}</span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
+                    </TD>
+                    <TD align="center">
                       <button
                         onClick={() => togglePublished.mutate({ id: course.id, published: course.published })}
+                        aria-label={course.published ? `Dépublier le cours ${course.title}` : `Publier le cours ${course.title}`}
                         className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                           course.published
                             ? 'bg-success/10 text-success border-success/20 hover:bg-success/20'
@@ -135,28 +128,28 @@ export default function AdminCourses() {
                         }`}
                       >
                         {course.published
-                          ? <><Eye className="w-3 h-3" /> Publié</>
-                          : <><EyeOff className="w-3 h-3" /> Brouillon</>
+                          ? <><Eye className="w-3 h-3" aria-hidden="true" /> Publié</>
+                          : <><EyeOff className="w-3 h-3" aria-hidden="true" /> Brouillon</>
                         }
                       </button>
-                    </td>
-                    <td className="px-6 py-4 text-right">
+                    </TD>
+                    <TD align="right">
                       <button
                         onClick={() => handleDelete(course.id, course.title)}
                         aria-label={`Supprimer le cours ${course.title}`}
                         className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" aria-hidden="true" />
                       </button>
-                    </td>
-                  </tr>
+                    </TD>
+                  </TR>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TBody>
+            </Table>
+          </TableShell>
 
           {/* Cards mobile */}
-          <div className="sm:hidden divide-y divide-border/50">
+          <MobileCards>
             {courses.map((course) => (
               <div key={course.id} className="p-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -187,7 +180,7 @@ export default function AdminCourses() {
                 </button>
               </div>
             ))}
-          </div>
+          </MobileCards>
 
         </div>
       )}

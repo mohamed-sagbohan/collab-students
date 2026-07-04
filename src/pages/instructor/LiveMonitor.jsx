@@ -7,6 +7,8 @@ import { StatCard } from '../../components/ui/StatCard'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Avatar } from '../../components/ui/Avatar'
 import { Button } from '../../components/ui/Button'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { PageHeader } from '../../components/ui/PageHeader'
 
 function exportResultsCSV(results) {
   if (!results?.length) return
@@ -42,27 +44,22 @@ const RESULT_QUERY = `
 function ScoreBadge({ result }) {
   if (result.result_type === 'dactylographie') {
     const wpm = result.wpm ?? 0
-    const color = wpm >= 50 ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-      : wpm >= 30 ? 'text-primary bg-primary/10 border-primary/20'
-      : wpm >= 15 ? 'text-amber-500 bg-amber-500/10 border-amber-500/20'
-      : 'text-red-500 bg-red-500/10 border-red-500/20'
+    const variant = wpm >= 50 ? 'success' : wpm >= 30 ? 'primary' : wpm >= 15 ? 'warning' : 'destructive'
     return (
       <div className="flex items-center gap-2 shrink-0">
-        <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${color}`}>
-          <Zap className="w-3 h-3" /> {wpm} wpm
-        </span>
+        <StatusBadge variant={variant} icon={Zap} className="font-bold">
+          {wpm} wpm
+        </StatusBadge>
         <span className="text-xs text-muted-foreground">{result.accuracy ?? 0}%</span>
       </div>
     )
   }
   const score = result.score_pct ?? 0
-  const color = score >= 80 ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-    : score >= 50 ? 'text-amber-500 bg-amber-500/10 border-amber-500/20'
-    : 'text-red-500 bg-red-500/10 border-red-500/20'
+  const variant = score >= 80 ? 'success' : score >= 50 ? 'warning' : 'destructive'
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border shrink-0 ${color}`}>
-      <Target className="w-3 h-3" /> {score}%
-    </span>
+    <StatusBadge variant={variant} icon={Target} className="font-bold shrink-0">
+      {score}%
+    </StatusBadge>
   )
 }
 
@@ -131,36 +128,34 @@ export default function LiveMonitor() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-        <div>
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
-            Suivi en direct
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Activité des apprenants</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Résultats d'exercices en temps réel.</p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Button
-            variant="secondary"
-            onClick={() => exportResultsCSV(results)}
-            disabled={!results?.length}
-            aria-label="Exporter les résultats en CSV"
-          >
-            <Download className="w-4 h-4 text-primary" aria-hidden="true" />
-            <span className="hidden sm:inline">Exporter CSV</span>
-          </Button>
-          <div className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border ${
-            connected
-              ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
-              : 'text-muted-foreground bg-muted border-border'
-          }`}>
-            {connected
-              ? <><Wifi className="w-4 h-4" /><span>En direct</span><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /></>
-              : <><WifiOff className="w-4 h-4" /><span>Connexion…</span></>
-            }
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Suivi en direct"
+        title="Activité des apprenants"
+        description="Résultats d'exercices en temps réel."
+        actions={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => exportResultsCSV(results)}
+              disabled={!results?.length}
+              aria-label="Exporter les résultats en CSV"
+            >
+              <Download className="w-4 h-4 text-primary" aria-hidden="true" />
+              <span className="hidden sm:inline">Exporter CSV</span>
+            </Button>
+            <div className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border ${
+              connected
+                ? 'text-success bg-success/10 border-success/20'
+                : 'text-muted-foreground bg-muted border-border'
+            }`}>
+              {connected
+                ? <><Wifi className="w-4 h-4" aria-hidden="true" /><span>En direct</span><span className="w-2 h-2 rounded-full bg-success animate-pulse" aria-hidden="true" /></>
+                : <><WifiOff className="w-4 h-4" aria-hidden="true" /><span>Connexion…</span></>
+              }
+            </div>
+          </>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
@@ -170,8 +165,8 @@ export default function LiveMonitor() {
           [
             { label: "Résultats aujourd'hui", value: stats.todayCount, icon: Activity, color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
             { label: 'Apprenants actifs', value: stats.activeStudents, icon: Users, color: 'text-violet-500', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
-            { label: 'WPM moyen (dactylo)', value: stats.avgWpm || '—', icon: Keyboard, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-            { label: 'Score moyen (QCM)', value: stats.avgScore ? `${stats.avgScore}%` : '—', icon: Target, color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+            { label: 'WPM moyen (dactylo)', value: stats.avgWpm || '—', icon: Keyboard, color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/20' },
+            { label: 'Score moyen (QCM)', value: stats.avgScore ? `${stats.avgScore}%` : '—', icon: Target, color: 'text-success', bg: 'bg-success/10', border: 'border-success/20' },
           ].map((card, i) => <StatCard key={card.label} {...card} delay={i * 60} />)
         )}
       </div>

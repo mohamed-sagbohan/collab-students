@@ -1,13 +1,14 @@
 import { useState, useEffect, useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Save, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, BookOpen } from 'lucide-react'
+import { Save, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, BookOpen } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { Button, buttonVariants } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
+import { Breadcrumb } from '../../components/ui/Breadcrumb'
 import { cn } from '../../lib/utils'
 
 export default function CourseForm() {
@@ -90,6 +91,7 @@ export default function CourseForm() {
       queryClient.invalidateQueries({ queryKey: ['editor-courses', user?.id] })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      toast.success(isNew ? 'Cours créé !' : 'Cours enregistré.')
       if (isNew) navigate(`${base}/${newId}`, { replace: true })
     },
     onError: () => toast.error("Impossible d'enregistrer le cours. Réessayez."),
@@ -130,14 +132,12 @@ export default function CourseForm() {
 
   return (
     <div className="max-w-2xl">
-      {/* Retour */}
-      <Link
-        to={base}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
-      >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-        Mes cours
-      </Link>
+      <Breadcrumb
+        items={[
+          { label: isAdmin ? 'Tous les cours' : 'Mes cours', to: base },
+          { label: isNew ? 'Nouveau cours' : title || 'Cours' },
+        ]}
+      />
 
       <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-6">
         {isNew ? 'Nouveau cours' : 'Modifier le cours'}
@@ -173,13 +173,17 @@ export default function CourseForm() {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            role="switch"
+            aria-checked={published}
+            aria-label={published ? 'Dépublier le cours' : 'Publier le cours'}
             onClick={() => setPublished((p) => !p)}
-            className={`relative w-10 h-[22px] rounded-full border transition-colors ${
+            className={`relative w-10 h-[22px] rounded-full border transition-colors after:absolute after:-inset-3 after:content-[''] ${
               published ? 'bg-success border-success' : 'bg-muted border-border'
             }`}
           >
             <span
-              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+              aria-hidden="true"
+              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform motion-reduce:transition-none ${
                 published ? 'translate-x-5' : 'translate-x-0.5'
               }`}
             />

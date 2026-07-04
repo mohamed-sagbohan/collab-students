@@ -4,6 +4,9 @@ import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { StatCard } from '../../components/ui/StatCard'
 import { Button } from '../../components/ui/Button'
+import { PageHeader } from '../../components/ui/PageHeader'
+import { BarChart } from '../../components/ui/BarChart'
+import { ProgressBar } from '../../components/ui/ProgressBar'
 
 function exportCSV(rows, filename) {
   if (!rows.length) return
@@ -24,13 +27,10 @@ function exportCSV(rows, filename) {
   URL.revokeObjectURL(url)
 }
 
-function MiniBar({ value, max, color }) {
-  const pct = max ? Math.round((value / max) * 100) : 0
+function MiniBar({ value, max, variant, label }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
-      </div>
+      <ProgressBar value={value} max={max} variant={variant} size="sm" label={label} className="flex-1" />
       <span className="text-xs font-bold text-foreground w-6 text-right shrink-0">{value}</span>
     </div>
   )
@@ -152,7 +152,6 @@ export default function AdminAnalytics() {
     exportCSV(rows, `learnit-resultats-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
-  const maxDay = dailyStats?.length ? Math.max(...dailyStats.map((d) => d.total)) : 1
   const maxCourse = topCourses.length ? topCourses[0].count : 1
   const maxStudent = topStudents.length ? topStudents[0].count : 1
 
@@ -161,28 +160,26 @@ export default function AdminAnalytics() {
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-        <div>
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-3">
-            <BarChart3 className="w-3.5 h-3.5" />
-            Analytics
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Statistiques de la plateforme</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Vue d'ensemble de l'activité des apprenants.</p>
-        </div>
-        <Button variant="secondary" onClick={handleExportAll} className="shrink-0">
-          <Download className="w-4 h-4 text-primary" aria-hidden="true" />
-          Exporter tout (CSV)
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Analytics"
+        eyebrowIcon={BarChart3}
+        title="Statistiques de la plateforme"
+        description="Vue d'ensemble de l'activité des apprenants."
+        actions={
+          <Button variant="secondary" onClick={handleExportAll}>
+            <Download className="w-4 h-4 text-primary" aria-hidden="true" />
+            Exporter tout (CSV)
+          </Button>
+        }
+      />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {isLoading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />) : [
           { label: 'Utilisateurs', value: globalStats?.totalUsers ?? 0,    icon: Users,     color: 'text-violet-500', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
           { label: 'Cours publiés',  value: globalStats?.totalCourses ?? 0,  icon: BookOpen,  color: 'text-primary',    bg: 'bg-primary/10',    border: 'border-primary/20' },
-          { label: 'Exercices faits',value: globalStats?.totalExercises ?? 0,icon: Zap,       color: 'text-amber-500',  bg: 'bg-amber-500/10',  border: 'border-amber-500/20' },
-          { label: 'Leçons complétées',value: globalStats?.totalResults ?? 0,icon: Target,    color: 'text-emerald-500',bg: 'bg-emerald-500/10',border: 'border-emerald-500/20' },
+          { label: 'Exercices faits',value: globalStats?.totalExercises ?? 0,icon: Zap,       color: 'text-warning',  bg: 'bg-warning/10',  border: 'border-warning/20' },
+          { label: 'Leçons complétées',value: globalStats?.totalResults ?? 0,icon: Target,    color: 'text-success',bg: 'bg-success/10',border: 'border-success/20' },
         ].map((card, i) => <StatCard key={card.label} {...card} delay={i * 60} />)}
       </div>
 
@@ -194,24 +191,17 @@ export default function AdminAnalytics() {
           {loadingDaily ? (
             <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8" />)}</div>
           ) : dailyStats?.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Aucune donnée sur cette période.</p>
+            <p className="text-xs text-muted-foreground py-6 text-center">Aucune donnée sur cette période.</p>
           ) : (
-            <div className="space-y-4">
-              {dailyStats?.map((d) => (
-                <div key={d.day}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs text-muted-foreground capitalize">{d.day}</span>
-                    <span className="text-xs font-bold text-foreground">{d.total}</span>
-                  </div>
-                  <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-muted">
-                    <div className="bg-primary rounded-l-full transition-all" style={{ width: `${maxDay ? (d.dactylo / maxDay) * 100 : 0}%` }} />
-                    <div className="bg-amber-500 rounded-r-full transition-all" style={{ width: `${maxDay ? (d.qcm / maxDay) * 100 : 0}%` }} />
-                  </div>
-                </div>
-              ))}
+            <div>
+              <BarChart
+                data={dailyStats.map((d) => ({ label: d.day.split(' ')[0], values: [d.dactylo, d.qcm] }))}
+                series={[{ variant: 'primary' }, { variant: 'warning' }]}
+                ariaLabel="Nombre d'exercices réalisés par jour sur les 7 derniers jours, dactylographie et QCM empilés"
+              />
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border">
-                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" /><span className="text-xs text-muted-foreground">Dactylo</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500" /><span className="text-xs text-muted-foreground">QCM</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" aria-hidden="true" /><span className="text-xs text-muted-foreground">Dactylo</span></div>
+                <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-warning" aria-hidden="true" /><span className="text-xs text-muted-foreground">QCM</span></div>
               </div>
             </div>
           )}
@@ -223,7 +213,7 @@ export default function AdminAnalytics() {
           {loadingCourses ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
           ) : topCourses.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Aucune donnée disponible.</p>
+            <p className="text-xs text-muted-foreground py-6 text-center">Aucune donnée disponible pour l'instant.</p>
           ) : (
             <div className="space-y-4">
               {topCourses.map((c, i) => (
@@ -234,7 +224,7 @@ export default function AdminAnalytics() {
                       <span className="text-xs text-foreground truncate">{c.title}</span>
                     </div>
                   </div>
-                  <MiniBar value={c.count} max={maxCourse} color="bg-primary" />
+                  <MiniBar value={c.count} max={maxCourse} variant="primary" label={`Leçons complétées : ${c.title}`} />
                 </div>
               ))}
             </div>
@@ -247,7 +237,7 @@ export default function AdminAnalytics() {
           {loadingStudents ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
           ) : topStudents.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Aucune donnée disponible.</p>
+            <p className="text-xs text-muted-foreground py-6 text-center">Aucune donnée disponible pour l'instant.</p>
           ) : (
             <div className="space-y-4">
               {topStudents.map((s, i) => (
@@ -258,7 +248,7 @@ export default function AdminAnalytics() {
                       <span className="text-xs text-foreground truncate">{s.name}</span>
                     </div>
                   </div>
-                  <MiniBar value={s.count} max={maxStudent} color="bg-violet-500" />
+                  <MiniBar value={s.count} max={maxStudent} variant="violet" label={`Exercices réalisés : ${s.name}`} />
                 </div>
               ))}
             </div>
