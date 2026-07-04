@@ -1,6 +1,6 @@
 import { useRef, useState, useLayoutEffect } from 'react'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2 } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
@@ -109,7 +109,7 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
             type="button"
             onClick={onClearLessonContext}
             aria-label="Retirer le contexte de la leçon"
-            className="inline-flex items-center justify-center w-8 h-8 -my-1.5 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
+            className="inline-flex items-center justify-center w-11 h-11 -my-2.5 -mr-1.5 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
           >
             <X className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
@@ -153,6 +153,7 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
 export default function ChatThread({
   messages = [],
   isLoading = false,
+  isError = false,
   hasNextPage = false,
   fetchNextPage,
   isFetchingNextPage = false,
@@ -173,11 +174,21 @@ export default function ChatThread({
   const nearBottomRef = useRef(true)
   const prependRef = useRef(null)
   const didInitRef = useRef(false)
+  const lastIdRef = useRef(null)
+  const [newBelow, setNewBelow] = useState(false)
+  const [announce, setAnnounce] = useState('')
+
+  function scrollToBottom() {
+    const el = containerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+    setNewBelow(false)
+  }
 
   function onScroll() {
     const el = containerRef.current
     if (!el) return
     nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    if (nearBottomRef.current) setNewBelow(false)
     if (el.scrollTop < 60 && hasNextPage && !isFetchingNextPage) {
       // Capture AVANT le fetch pour restaurer la position après le prepend.
       prependRef.current = { height: el.scrollHeight, top: el.scrollTop }
@@ -188,6 +199,10 @@ export default function ChatThread({
   useLayoutEffect(() => {
     const el = containerRef.current
     if (!el || messages.length === 0) return
+    const last = messages[messages.length - 1]
+    const isNewLast = last && last.id !== lastIdRef.current
+    lastIdRef.current = last?.id ?? null
+
     if (prependRef.current) {
       // (a) page ancienne prépendue : on restaure la position de lecture
       el.scrollTop = el.scrollHeight - prependRef.current.height + prependRef.current.top
@@ -202,18 +217,25 @@ export default function ChatThread({
     }
     // (c) nouveau message : on ne force le scroll que si l'utilisateur est
     // déjà en bas, ou si c'est son propre message
-    const last = messages[messages.length - 1]
+    const incoming = isNewLast && last.sender_id !== currentUserId && !last.pending
     if (nearBottomRef.current || last?.sender_id === currentUserId) {
       el.scrollTop = el.scrollHeight
+    } else if (incoming) {
+      // L'utilisateur lit plus haut : pastille au lieu de forcer le scroll.
+      setNewBelow(true)
+    }
+    if (incoming) {
+      setAnnounce(`Nouveau message de ${last.profiles?.name ?? "l'équipe"}`)
     }
   }, [messages, currentUserId])
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      <div className="relative flex-1 min-h-0">
       <div
         ref={containerRef}
         onScroll={onScroll}
-        className="flex-1 min-h-0 overflow-y-auto px-4 py-4"
+        className="h-full overflow-y-auto px-4 py-4"
       >
         {isFetchingNextPage && (
           <div className="flex justify-center py-2">
@@ -230,7 +252,17 @@ export default function ChatThread({
           </div>
         )}
 
-        {!isLoading && messages.length === 0 && (
+        {isError && !isLoading && (
+          <div className="h-full flex flex-col items-center justify-center text-center px-6 py-10">
+            <AlertCircle className="w-6 h-6 text-destructive mb-3" aria-hidden="true" />
+            <p className="text-sm font-bold text-foreground mb-1">Impossible de charger les messages</p>
+            <p className="text-xs text-muted-foreground max-w-[16rem]">
+              Vérifiez votre connexion puis rouvrez la discussion.
+            </p>
+          </div>
+        )}
+
+        {!isLoading && !isError && messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 py-10">
             <div className="w-12 h-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mb-4">
               <MessageCircle className="w-5 h-5 text-primary" aria-hidden="true" />
@@ -240,7 +272,7 @@ export default function ChatThread({
           </div>
         )}
 
-        {!isLoading && messages.length > 0 && (
+        {!isLoading && !isError && messages.length > 0 && (
           <ol className="space-y-2">
             {messages.map((message, i) => {
               const prev = messages[i - 1]
@@ -264,6 +296,22 @@ export default function ChatThread({
           </ol>
         )}
       </div>
+
+      {/* Pastille « nouveau message » quand on lit plus haut */}
+      {newBelow && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-primary text-primary-foreground text-xs font-semibold px-3.5 py-2.5 rounded-full shadow-lg shadow-primary/25 hover:bg-primary/90 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
+        >
+          <ArrowDown className="w-3.5 h-3.5" aria-hidden="true" />
+          Nouveau message
+        </button>
+      )}
+      </div>
+
+      {/* Annonce vocale des messages entrants (jamais aria-live sur la liste) */}
+      <span className="sr-only" role="status">{announce}</span>
 
       {/* Indicateur « en train d'écrire » */}
       <div aria-live="polite" className="px-4 shrink-0">

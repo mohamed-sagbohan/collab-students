@@ -48,7 +48,7 @@ export default function Messaging() {
 
   const active = conversations.find((c) => c.id === activeId) ?? null
 
-  const { messages, isLoading: loadingMessages, hasNextPage, fetchNextPage, isFetchingNextPage } =
+  const { messages, isLoading: loadingMessages, isError: errorMessages, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useChatMessages(activeId)
   const sendMessage = useSendMessage(activeId)
   // Canal de la conversation ouverte : typing uniquement (les INSERT arrivent
@@ -213,7 +213,10 @@ export default function Messaging() {
                 </p>
               </div>
             ) : (
-              <>
+              <div
+                key={active.id}
+                className="flex flex-col h-full min-h-0 animate-in fade-in sm:animate-none slide-in-from-right-2 sm:slide-in-from-right-0 duration-200 motion-reduce:animate-none"
+              >
                 {/* En-tête du fil */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
                   <button
@@ -244,6 +247,7 @@ export default function Messaging() {
                   key={active.id}
                   messages={messages}
                   isLoading={loadingMessages}
+                  isError={errorMessages}
                   hasNextPage={hasNextPage}
                   fetchNextPage={fetchNextPage}
                   isFetchingNextPage={isFetchingNextPage}
@@ -257,7 +261,7 @@ export default function Messaging() {
                   emptyDescription="Écrivez le premier message ci-dessous."
                   composerPlaceholder="Répondez à l'apprenant…"
                 />
-              </>
+              </div>
             )}
           </div>
         </div>

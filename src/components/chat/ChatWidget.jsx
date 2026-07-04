@@ -111,7 +111,7 @@ function ChatWidgetInner() {
   )
 
   // Les messages ne sont chargés qu'à partir de la première ouverture.
-  const { messages, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useChatMessages(
+  const { messages, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useChatMessages(
     everOpened ? conversationId : null
   )
   const sendMessage = useSendMessage(conversationId)
@@ -229,7 +229,7 @@ function ChatWidgetInner() {
           role="dialog"
           aria-modal="true"
           aria-label="Discussion avec le support"
-          className="fixed z-50 inset-0 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[380px] sm:h-[min(32rem,calc(100dvh-8rem))] bg-card sm:border sm:border-border sm:rounded-2xl sm:shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200 motion-reduce:animate-none"
+          className="fixed z-50 inset-0 sm:inset-auto sm:bottom-24 sm:right-6 sm:w-[380px] sm:h-[min(32rem,calc(100dvh-8rem))] bg-card sm:border sm:border-border sm:rounded-2xl sm:shadow-2xl flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] sm:pb-0 animate-in fade-in slide-in-from-bottom-2 duration-200 motion-reduce:animate-none"
         >
           {/* En-tête */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
@@ -259,6 +259,7 @@ function ChatWidgetInner() {
             key={conversationId ?? 'nouvelle'}
             messages={messages}
             isLoading={everOpened && !!conversationId && isLoading}
+            isError={isError}
             hasNextPage={hasNextPage}
             fetchNextPage={fetchNextPage}
             isFetchingNextPage={isFetchingNextPage}
