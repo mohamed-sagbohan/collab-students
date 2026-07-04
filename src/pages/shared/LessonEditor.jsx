@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Save, Eye, Code2, Video, Bold, Italic, List, ListOrdered, Heading2, Heading3, Link2, Quote } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Code2, Video, Bold, Italic, List, ListOrdered, Heading2, Heading3, Link2, Quote, Info } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
@@ -50,6 +50,8 @@ const TOOL_GROUPS = [
   [
     { Icon: Code2, title: 'Code inline', before: '<code>', after: '</code>' },
     { Icon: Quote, title: 'Citation',    before: '\n<blockquote>\n  ', after: '\n</blockquote>\n' },
+    // Encadré pédagogique — variantes : callout-info / callout-success / callout-warning / callout-danger
+    { Icon: Info,  title: 'Encadré',     before: '\n<div class="callout callout-info">\n  <p>', after: '</p>\n</div>\n' },
   ],
 ]
 
@@ -306,13 +308,7 @@ export default function LessonEditor() {
           />
         ) : (
           <div
-            className="px-5 sm:px-8 py-6 lesson-content prose prose-sm sm:prose max-w-none
-              prose-headings:text-foreground prose-headings:font-bold
-              prose-p:text-muted-foreground prose-p:leading-relaxed
-              prose-li:text-muted-foreground
-              prose-strong:text-foreground
-              prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono
-              prose-a:text-primary"
+            className="px-5 sm:px-8 py-6 lesson-content"
             dangerouslySetInnerHTML={{ __html: sanitizeLessonHtml(content) || '<p class="text-muted-foreground italic">Aucun contenu à prévisualiser.</p>' }}
           />
         )}

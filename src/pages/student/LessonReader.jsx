@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
-import { CheckCircle, ArrowLeft, Zap } from 'lucide-react'
+import { CheckCircle, ArrowLeft, ArrowRight, Zap, Clock } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
+import { injectHeadingIds, extractHeadings, readingTimeMinutes } from '../../lib/lessonContent'
 import { Skeleton } from '../../components/Skeleton'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
@@ -21,6 +22,8 @@ export default function LessonReader() {
   const [readProgress, setReadProgress] = useState(0)
 
   useEffect(() => {
+    // Repart en haut de page quand on change de leçon (nav précédente/suivante)
+    window.scrollTo({ top: 0, behavior: 'instant' })
     const onScroll = () => {
       const el = document.documentElement
       const scrollable = el.scrollHeight - el.clientHeight
@@ -57,6 +60,35 @@ export default function LessonReader() {
     },
     enabled: !!user,
   })
+
+  // Leçons sœurs pour la navigation précédente/suivante — même clé et même
+  // requête que CourseDetail : servie depuis le cache React Query quand on
+  // arrive depuis la page du cours.
+  const { data: course } = useQuery({
+    queryKey: ['course', courseId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id, title, description, fiche_content, youtube_videos, lessons(id, title, order_index)')
+        .eq('id', courseId)
+        .single()
+      if (error) throw error
+      return {
+        ...data,
+        lessons: data.lessons?.sort((a, b) => a.order_index - b.order_index),
+      }
+    },
+  })
+
+  const siblings = course?.lessons ?? []
+  const lessonIndex = siblings.findIndex((l) => l.id === lessonId)
+  const prevLesson = lessonIndex > 0 ? siblings[lessonIndex - 1] : null
+  const nextLesson = lessonIndex >= 0 && lessonIndex < siblings.length - 1 ? siblings[lessonIndex + 1] : null
+
+  // HTML sanitizé + ids d'ancres pour le sommaire, temps de lecture estimé
+  const html = useMemo(() => injectHeadingIds(sanitizeLessonHtml(lesson?.content)), [lesson?.content])
+  const headings = useMemo(() => extractHeadings(html), [html])
+  const readMinutes = useMemo(() => readingTimeMinutes(html), [html])
 
   const markComplete = useMutation({
     mutationFn: async () => {
@@ -107,40 +139,45 @@ export default function LessonReader() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto xl:max-w-none xl:grid xl:grid-cols-[minmax(0,48rem)_13rem] xl:justify-center xl:gap-10">
 
       {/* Barre de progression de lecture */}
-      <div className="fixed top-14 sm:top-16 left-0 right-0 h-0.5 bg-transparent z-30 pointer-events-none">
+      <div
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(readProgress)}
+        aria-label="Progression de lecture"
+        className="fixed top-14 sm:top-16 left-0 right-0 h-1 bg-transparent z-30 pointer-events-none"
+      >
         <div
-          className="h-full bg-primary transition-[width] duration-150 ease-out"
+          className="h-full bg-primary transition-[width] duration-150 ease-out motion-reduce:transition-none"
           style={{ width: `${readProgress}%` }}
         />
       </div>
+
+      <div className="min-w-0">
 
       <Link
         to={`/cours/${courseId}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
       >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" aria-hidden="true" />
         Retour au cours
       </Link>
 
-      <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-8">{lesson?.title}</h1>
+      <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-3">{lesson?.title}</h1>
+
+      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
+        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+        Environ {readMinutes} min de lecture
+      </p>
 
       {/* Contenu de la leçon */}
       <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-8">
         <div
-          className="lesson-content prose prose-sm sm:prose max-w-none
-            prose-headings:text-foreground prose-headings:font-bold
-            prose-p:text-muted-foreground prose-p:leading-relaxed
-            prose-li:text-muted-foreground
-            prose-strong:text-foreground
-            prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono
-            prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-            prose-table:border prose-table:border-border
-            prose-th:bg-muted prose-th:text-foreground
-            prose-td:border prose-td:border-border"
-          dangerouslySetInnerHTML={{ __html: sanitizeLessonHtml(lesson?.content) }}
+          className="lesson-content"
+          dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
 
@@ -199,8 +236,69 @@ export default function LessonReader() {
         </div>
       )}
 
+      {/* Navigation entre leçons */}
+      {(prevLesson || nextLesson) && (
+        <nav aria-label="Navigation entre les leçons" className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {prevLesson && (
+            <Link
+              to={`/cours/${courseId}/lecons/${prevLesson.id}`}
+              className="group bg-card border border-border rounded-2xl p-4 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            >
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                Leçon précédente
+              </span>
+              <span className="block text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                {prevLesson.title}
+              </span>
+            </Link>
+          )}
+          {nextLesson && (
+            <Link
+              to={`/cours/${courseId}/lecons/${nextLesson.id}`}
+              className="group bg-card border border-border rounded-2xl p-4 text-right hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:col-start-2"
+            >
+              <span className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground mb-1">
+                Leçon suivante
+                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              </span>
+              <span className="block text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                {nextLesson.title}
+              </span>
+            </Link>
+          )}
+        </nav>
+      )}
+
       {/* Commentaires */}
       <LessonComments lessonId={lessonId} />
+
+      </div>
+
+      {/* Sommaire (desktop large) */}
+      {headings.length > 1 && (
+        <aside className="hidden xl:block">
+          <nav aria-label="Sommaire de la leçon" className="sticky top-24">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              Sommaire
+            </p>
+            <ul className="space-y-1 border-l border-border">
+              {headings.map((h) => (
+                <li key={h.id}>
+                  <a
+                    href={`#${h.id}`}
+                    className={`block py-1 pr-2 text-sm text-muted-foreground hover:text-primary transition-colors border-l-2 border-transparent hover:border-primary -ml-px leading-snug ${
+                      h.level === 2 ? 'pl-3' : 'pl-6'
+                    }`}
+                  >
+                    {h.text}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </aside>
+      )}
 
     </div>
   )
