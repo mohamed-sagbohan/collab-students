@@ -22,6 +22,7 @@ import AdminAnalytics from '../pages/admin/Analytics'
 import CourseEditor from '../pages/shared/CourseEditor'
 import CourseForm from '../pages/shared/CourseForm'
 import LessonEditor from '../pages/shared/LessonEditor'
+import Messaging from '../pages/staff/Messaging'
 
 export const router = createBrowserRouter([
   // Landing / redirect selon rôle
@@ -66,6 +67,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/formateur', element: <InstructorDashboard /> },
           { path: '/formateur/suivi', element: <InstructorLiveMonitor /> },
+          { path: '/formateur/messagerie', element: <Messaging /> },
           { path: '/formateur/editeur', element: <CourseEditor /> },
           { path: '/formateur/editeur/:courseId', element: <CourseForm /> },
           { path: '/formateur/editeur/:courseId/lecons/:lessonId', element: <LessonEditor /> },
@@ -85,6 +87,7 @@ export const router = createBrowserRouter([
           { path: '/admin/utilisateurs', element: <AdminUsers /> },
           { path: '/admin/cours', element: <AdminCourses /> },
           { path: '/admin/suivi', element: <InstructorLiveMonitor /> },
+          { path: '/admin/messagerie', element: <Messaging /> },
           { path: '/admin/analytics', element: <AdminAnalytics /> },
           { path: '/admin/editeur', element: <CourseEditor /> },
           { path: '/admin/editeur/:courseId', element: <CourseForm /> },

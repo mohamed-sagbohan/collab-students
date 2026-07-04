@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { LayoutDashboard, BookOpen, Users, Activity, LogOut, GraduationCap, Menu, X, BarChart3, PenSquare } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Users, Activity, LogOut, GraduationCap, Menu, X, BarChart3, PenSquare, MessageCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { SkipLink } from '../components/ui/SkipLink'
 import { NavItem } from '../components/ui/NavItem'
 import { Avatar } from '../components/ui/Avatar'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
+import { useStaffConversations, useStaffChatRealtime } from '../hooks/useChat'
 
 const instructorLinks = [
-  { to: '/formateur',         icon: LayoutDashboard, label: 'Tableau de bord' },
-  { to: '/formateur/suivi',   icon: Activity,        label: 'Suivi en direct' },
-  { to: '/formateur/editeur', icon: PenSquare,       label: 'Mes cours' },
+  { to: '/formateur',            icon: LayoutDashboard, label: 'Tableau de bord' },
+  { to: '/formateur/suivi',      icon: Activity,        label: 'Suivi en direct' },
+  { to: '/formateur/messagerie', icon: MessageCircle,   label: 'Messagerie' },
+  { to: '/formateur/editeur',    icon: PenSquare,       label: 'Mes cours' },
 ]
 
 const adminLinks = [
@@ -19,6 +21,7 @@ const adminLinks = [
   { to: '/admin/utilisateurs',icon: Users,           label: 'Utilisateurs' },
   { to: '/admin/cours',       icon: BookOpen,        label: 'Cours' },
   { to: '/admin/suivi',       icon: Activity,        label: 'Suivi en direct' },
+  { to: '/admin/messagerie',  icon: MessageCircle,   label: 'Messagerie' },
   { to: '/admin/analytics',   icon: BarChart3,       label: 'Analytics' },
   { to: '/admin/editeur',     icon: PenSquare,       label: 'Éditeur' },
 ]
@@ -43,6 +46,9 @@ function LayoutBreadcrumb({ pathname, isAdmin }) {
 
 function SidebarContent({ profile, logout, onClose }) {
   const links = profile?.role === 'admin' ? adminLinks : instructorLinks
+  // Clé partagée avec la page Messagerie : un seul fetch, deux consommateurs.
+  const { data: conversations = [] } = useStaffConversations()
+  const chatUnread = conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0)
 
   return (
     <div className="flex flex-col h-full">
@@ -88,6 +94,13 @@ function SidebarContent({ profile, logout, onClose }) {
               badge={
                 label === 'Suivi en direct' ? (
                   <span className="ml-auto w-2 h-2 rounded-full bg-success animate-pulse shrink-0" aria-hidden="true" />
+                ) : label === 'Messagerie' && chatUnread > 0 ? (
+                  <span
+                    className="ml-auto min-w-5 h-5 px-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center shrink-0"
+                    aria-label={`${chatUnread} message${chatUnread > 1 ? 's' : ''} non lu${chatUnread > 1 ? 's' : ''}`}
+                  >
+                    {chatUnread > 9 ? '9+' : chatUnread}
+                  </span>
                 ) : undefined
               }
             />
@@ -114,6 +127,10 @@ export default function AdminLayout() {
   const { profile, logout } = useAuth()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Canal realtime unique du chat côté staff (alimente le cache React Query,
+  // aucun state React ici — pas de re-render du layout).
+  useStaffChatRealtime()
 
   useEffect(() => {
     const handler = () => { if (window.innerWidth >= 1024) setSidebarOpen(false) }
