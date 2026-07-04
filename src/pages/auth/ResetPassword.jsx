@@ -90,7 +90,7 @@ export default function ResetPassword() {
   if (success) {
     return (
       <div className="text-center">
-        <IconBadge icon={CheckCircle} size="lg" color="text-emerald-500" bg="bg-emerald-500/10" className="mx-auto mb-5" />
+        <IconBadge icon={CheckCircle} size="lg" color="text-success" bg="bg-success/10" className="mx-auto mb-5" />
         <h2 className="text-xl font-bold text-foreground mb-2">Mot de passe mis à jour !</h2>
         <p className="text-sm text-muted-foreground">Redirection automatique vers votre espace…</p>
       </div>

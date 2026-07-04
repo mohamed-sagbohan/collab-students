@@ -44,13 +44,21 @@ export default function ExerciseTimer({ duration, running, onTimeUp }) {
 
   return (
     <div className="flex items-center gap-3">
-      <div className={`flex items-center gap-1.5 font-mono font-bold text-base tabular-nums shrink-0 ${color}`}>
-        <Clock className={`w-4 h-4 shrink-0 ${urgent ? 'animate-pulse' : ''}`} />
+      <div
+        role="timer"
+        aria-label={`Temps restant : ${mins} minute${mins > 1 ? 's' : ''} et ${secs} seconde${secs > 1 ? 's' : ''}`}
+        className={`flex items-center gap-1.5 font-mono font-bold text-base tabular-nums shrink-0 ${color}`}
+      >
+        <Clock className={`w-4 h-4 shrink-0 ${urgent ? 'animate-pulse motion-reduce:animate-none' : ''}`} aria-hidden="true" />
         {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
       </div>
-      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+      {/* Annonce vocale uniquement aux moments clés (pas chaque seconde) */}
+      <span className="sr-only" aria-live="polite">
+        {remaining === 0 ? 'Temps écoulé !' : urgent ? 'Attention : il reste peu de temps.' : ''}
+      </span>
+      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden" aria-hidden="true">
         <div
-          className={`h-full rounded-full transition-all duration-1000 ${barColor}`}
+          className={`h-full rounded-full transition-all duration-1000 motion-reduce:transition-none ${barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>

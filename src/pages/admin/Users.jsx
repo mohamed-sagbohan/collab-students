@@ -141,7 +141,7 @@ export default function AdminUsers() {
                           disabled={isSelf}
                           aria-label={`Supprimer l'utilisateur ${user.name}`}
                           title={isSelf ? 'Vous ne pouvez pas supprimer votre propre compte' : undefined}
-                          className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10 disabled:opacity-30 disabled:pointer-events-none"
+                          className="inline-flex items-center justify-center w-11 h-11 -my-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10 disabled:opacity-30 disabled:pointer-events-none"
                         >
                           <Trash2 className="w-4 h-4" aria-hidden="true" />
                         </button>
@@ -177,9 +177,9 @@ export default function AdminUsers() {
                     onClick={() => handleDelete(user.id, user.name)}
                     disabled={isSelf}
                     aria-label={`Supprimer l'utilisateur ${user.name}`}
-                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+                    className="inline-flex items-center justify-center w-11 h-11 -mx-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10 shrink-0 disabled:opacity-30 disabled:pointer-events-none"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
               )

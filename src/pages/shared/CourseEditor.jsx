@@ -135,15 +135,17 @@ export default function CourseEditor() {
                 <button
                   onClick={() => togglePublished.mutate({ id: course.id, published: course.published })}
                   title={course.published ? 'Dépublier' : 'Publier'}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  aria-label={course.published ? `Dépublier le cours ${course.title}` : `Publier le cours ${course.title}`}
+                  className="inline-flex items-center justify-center w-11 h-11 -my-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
-                  {course.published ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {course.published ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
                 </button>
                 <Link
                   to={`${base}/${course.id}`}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                  aria-label={`Modifier le cours ${course.title}`}
+                  className="inline-flex items-center justify-center w-11 h-11 -my-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                 >
-                  <Pencil className="w-4 h-4" />
+                  <Pencil className="w-4 h-4" aria-hidden="true" />
                 </Link>
                 <button
                   onClick={async () => {
@@ -156,9 +158,9 @@ export default function CourseEditor() {
                     if (ok) deleteCourse.mutate(course.id)
                   }}
                   aria-label={`Supprimer le cours ${course.title}`}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  className="inline-flex items-center justify-center w-11 h-11 -my-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
             </div>

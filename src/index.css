@@ -50,7 +50,7 @@
   --secondary-foreground: oklch(0.3 0.04 260);
 
   --muted: oklch(0.945 0.006 260);
-  --muted-foreground: oklch(0.5 0.02 260);
+  --muted-foreground: oklch(0.46 0.02 260);
 
   --accent: oklch(0.95 0.008 260);
   --accent-foreground: oklch(0.3 0.04 260);
@@ -85,7 +85,7 @@
   --secondary-foreground: oklch(0.85 0.01 260);
 
   --muted: oklch(0.15 0.028 262);
-  --muted-foreground: oklch(0.57 0.02 262);
+  --muted-foreground: oklch(0.62 0.02 262);
 
   --accent: oklch(0.17 0.028 262);
   --accent-foreground: oklch(0.85 0.01 260);
@@ -109,6 +109,23 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+/* ── Respect de prefers-reduced-motion ──────────────────────────
+   Les animations se terminent instantanément (durée ≈ 0, une seule
+   itération) : le contenu animé en entrée (animate-in, Reveal…)
+   n'est jamais bloqué invisible. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 :focus-visible {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router'
 import { CheckCircle, XCircle, GraduationCap } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { buttonVariants } from '../../components/ui/Button'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
@@ -59,8 +60,8 @@ export default function AuthCallback() {
       <div className="w-full max-w-sm text-center">
 
         <Link to="/" className="flex items-center justify-center gap-2 mb-10">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <GraduationCap className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <GraduationCap className="w-4 h-4 text-primary-foreground" aria-hidden="true" />
           </div>
           <span className="font-bold text-foreground">LearnIT</span>
         </Link>
@@ -75,8 +76,8 @@ export default function AuthCallback() {
 
         {status === 'success' && (
           <>
-            <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="w-8 h-8 text-emerald-500" />
+            <div className="w-16 h-16 bg-success/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <CheckCircle className="w-8 h-8 text-success" aria-hidden="true" />
             </div>
             <h1 className="text-xl font-bold text-foreground mb-2">Compte confirmé !</h1>
             <p className="text-sm text-muted-foreground mb-1">Votre adresse email a bien été vérifiée.</p>
@@ -91,10 +92,7 @@ export default function AuthCallback() {
             </div>
             <h1 className="text-xl font-bold text-foreground mb-2">Lien invalide</h1>
             <p className="text-sm text-muted-foreground mb-6">{errorMsg}</p>
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
-            >
+            <Link to="/register" className={buttonVariants()}>
               Créer un compte
             </Link>
           </>

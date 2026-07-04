@@ -6,9 +6,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 const TYPE_ICON = {
-  badge:         { Icon: Award,         color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20' },
-  comment_reply: { Icon: MessageSquare, color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20' },
-  new_course:    { Icon: BookOpen,      color: 'text-primary',     bg: 'bg-primary/10',     border: 'border-primary/20' },
+  badge:         { Icon: Award,         color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/20' },
+  comment_reply: { Icon: MessageSquare, color: 'text-info',    bg: 'bg-info/10',    border: 'border-info/20' },
+  new_course:    { Icon: BookOpen,      color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
 }
 
 function timeAgo(dateStr) {

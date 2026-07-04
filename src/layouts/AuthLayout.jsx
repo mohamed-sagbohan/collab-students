@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router'
 import { GraduationCap, CheckCircle, Sparkles } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { SkipLink } from '../components/ui/SkipLink'
 
 const highlights = [
   'Cours conçus pour les vrais débutants',
@@ -14,6 +15,7 @@ export default function AuthLayout() {
 
   return (
     <div className="min-h-screen flex bg-background">
+      <SkipLink />
 
       {/* Panneau gauche — branding */}
       <div className="hidden lg:flex w-[45%] bg-card border-r border-border flex-col justify-between p-12 relative overflow-hidden shrink-0">
@@ -67,11 +69,11 @@ export default function AuthLayout() {
           <ThemeToggle />
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-5 sm:px-8 py-8 sm:py-12">
+        <main id="main-content" tabIndex={-1} className="flex-1 flex items-center justify-center px-5 sm:px-8 py-8 sm:py-12 focus:outline-none">
           <div key={location.pathname} className="w-full max-w-md animate-in fade-in slide-in-from-bottom-2 duration-300">
             <Outlet />
           </div>
-        </div>
+        </main>
       </div>
 
     </div>

@@ -8,6 +8,7 @@ import { EmptyState } from './ui/EmptyState'
 import { Avatar } from './ui/Avatar'
 import { Button } from './ui/Button'
 import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -92,6 +93,7 @@ function CommentItem({ comment, lessonId, allComments }) {
   const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
+  const confirm = useConfirm()
   const [replying, setReplying] = useState(false)
 
   const isOwn   = user?.id === comment.user_id
@@ -133,21 +135,30 @@ function CommentItem({ comment, lessonId, allComments }) {
             <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
           </div>
           <p className="text-sm text-foreground/90 mt-1 leading-relaxed">{comment.content}</p>
-          <div className="flex items-center gap-3 mt-1.5">
+          <div className="flex items-center gap-1 mt-0.5 -ml-2">
             {!comment.parent_id && (
               <button
                 onClick={() => setReplying((r) => !r)}
-                className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium px-2 py-2.5 min-h-11 rounded-lg"
               >
                 Répondre
               </button>
             )}
             {canDelete && (
               <button
-                onClick={() => deleteComment()}
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Supprimer ce commentaire ?',
+                    description: 'Le commentaire et ses réponses seront définitivement supprimés.',
+                    confirmLabel: 'Supprimer',
+                    danger: true,
+                  })
+                  if (ok) deleteComment()
+                }}
+                aria-label="Supprimer ce commentaire"
+                className="inline-flex items-center justify-center w-11 h-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             )}
           </div>
@@ -222,8 +233,8 @@ export default function LessonComments({ lessonId }) {
     <div className="mt-8">
       {/* Header */}
       <div className="flex items-center gap-2.5 mb-5">
-        <div className="w-8 h-8 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-center justify-center shrink-0">
-          <MessageSquare className="w-4 h-4 text-blue-400" />
+        <div className="w-8 h-8 bg-info/10 border border-info/20 rounded-xl flex items-center justify-center shrink-0">
+          <MessageSquare className="w-4 h-4 text-info" aria-hidden="true" />
         </div>
         <h3 className="text-base font-bold text-foreground">
           Questions & Commentaires

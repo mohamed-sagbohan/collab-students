@@ -246,17 +246,19 @@ export default function CourseForm() {
                       onClick={() => moveLesson(i, -1)}
                       disabled={i === 0}
                       title="Monter"
-                      className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                      aria-label={`Monter la leçon ${lesson.title}`}
+                      className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:pointer-events-none"
                     >
-                      <ChevronUp className="w-3.5 h-3.5" />
+                      <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                     <button
                       onClick={() => moveLesson(i, 1)}
                       disabled={i === lessons.length - 1}
                       title="Descendre"
-                      className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                      aria-label={`Descendre la leçon ${lesson.title}`}
+                      className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:pointer-events-none"
                     >
-                      <ChevronDown className="w-3.5 h-3.5" />
+                      <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                   </div>
                   <span className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">
@@ -266,9 +268,10 @@ export default function CourseForm() {
                   <div className="flex items-center gap-1 shrink-0">
                     <Link
                       to={`${base}/${courseId}/lecons/${lesson.id}`}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      aria-label={`Modifier la leçon ${lesson.title}`}
+                      className="inline-flex items-center justify-center w-11 h-11 -my-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                     >
-                      <Pencil className="w-3.5 h-3.5" />
+                      <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
                     </Link>
                     <button
                       onClick={async () => {
@@ -281,9 +284,9 @@ export default function CourseForm() {
                         if (ok) deleteLesson.mutate(lesson.id)
                       }}
                       aria-label={`Supprimer la leçon ${lesson.title}`}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      className="inline-flex items-center justify-center w-11 h-11 -my-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                   </div>
                 </div>

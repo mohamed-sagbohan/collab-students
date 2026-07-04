@@ -137,7 +137,7 @@ export default function AdminCourses() {
                       <button
                         onClick={() => handleDelete(course.id, course.title)}
                         aria-label={`Supprimer le cours ${course.title}`}
-                        className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
+                        className="inline-flex items-center justify-center w-11 h-11 -my-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
                       >
                         <Trash2 className="w-4 h-4" aria-hidden="true" />
                       </button>
@@ -160,9 +160,9 @@ export default function AdminCourses() {
                   <button
                     onClick={() => handleDelete(course.id, course.title)}
                     aria-label={`Supprimer le cours ${course.title}`}
-                    className="p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    className="inline-flex items-center justify-center w-11 h-11 -m-2 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10 shrink-0"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
                 <button

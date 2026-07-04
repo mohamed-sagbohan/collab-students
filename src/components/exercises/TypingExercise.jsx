@@ -312,8 +312,6 @@ export default function TypingExercise({ text, timeUp, onComplete, onStart, exer
     )
   }
 
-  const progress = text.length > 0 ? (typed.length / text.length) * 100 : 0
-
   return (
     <div className="space-y-4">
       {/* Texte de référence */}
@@ -349,12 +347,12 @@ export default function TypingExercise({ text, timeUp, onComplete, onStart, exer
             : <span className="text-warning">⌨️ Commencez à taper pour démarrer le chrono</span>
           }
         </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full transition-all duration-100"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        <ProgressBar
+          value={typed.length}
+          max={text.length}
+          label="Progression de la frappe"
+          className="transition-all duration-100"
+        />
       </div>
 
       {/* Zone de saisie */}

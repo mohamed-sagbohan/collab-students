@@ -19,9 +19,9 @@ const STEPS = [
   },
   {
     icon: BookOpen,
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/20',
+    color: 'text-info',
+    bg: 'bg-info/10',
+    border: 'border-info/20',
     title: 'Des cours progressifs',
     desc: 'Chaque cours est découpé en leçons courtes et des exercices pratiques pour valider vos acquis en temps réel.',
     features: ['Leçons illustrées étape par étape', 'Exercices QCM et dactylographie', 'Progression enregistrée automatiquement'],
@@ -29,9 +29,9 @@ const STEPS = [
   },
   {
     icon: Award,
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/20',
+    color: 'text-warning',
+    bg: 'bg-warning/10',
+    border: 'border-warning/20',
     title: 'Gagnez des badges',
     desc: 'Chaque accomplissement vous rapporte un badge et à la fin d\'un cours, un certificat téléchargeable.',
     features: ['8 badges à débloquer', 'Certificat PDF à la fin de chaque cours', 'Suivez votre progression sur le tableau de bord'],
@@ -74,9 +74,9 @@ export default function OnboardingModal() {
         <button
           onClick={dismiss}
           aria-label="Fermer"
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground"
+          className="absolute top-2 right-2 w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted transition-colors text-muted-foreground"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4" aria-hidden="true" />
         </button>
 
         {/* Icône */}
@@ -102,17 +102,22 @@ export default function OnboardingModal() {
         )}
 
         {/* Indicateurs d'étapes */}
-        <div className="flex items-center justify-center gap-1.5 mb-5">
+        <div className="flex items-center justify-center mb-3">
           {STEPS.map((_, i) => (
             <button
               key={i}
               onClick={() => setStep(i)}
               aria-label={`Étape ${i + 1} sur ${STEPS.length}`}
               aria-current={i === step ? 'step' : undefined}
-              className={`rounded-full transition-all ${
-                i === step ? 'w-5 h-2 bg-primary' : 'w-2 h-2 bg-muted hover:bg-muted-foreground/40'
-              }`}
-            />
+              className="w-11 h-11 flex items-center justify-center rounded-full group"
+            >
+              <span
+                aria-hidden="true"
+                className={`rounded-full transition-all ${
+                  i === step ? 'w-5 h-2 bg-primary' : 'w-2 h-2 bg-muted group-hover:bg-muted-foreground/40'
+                }`}
+              />
+            </button>
           ))}
         </div>
 
