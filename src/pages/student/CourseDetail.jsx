@@ -5,6 +5,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { ProgressRing } from '../../components/ui/ProgressRing'
 import { downloadCertificate } from '../../lib/certificate'
 import { downloadFiche } from '../../lib/fichePdf'
 
@@ -126,8 +128,8 @@ export default function CourseDetail() {
             /* ── Cours terminé ── */
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex items-center gap-3 flex-1">
-                <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
-                  <Award className="w-5 h-5 text-amber-400" />
+                <div className="w-10 h-10 bg-warning/10 border border-warning/20 rounded-xl flex items-center justify-center shrink-0">
+                  <Award className="w-5 h-5 text-warning" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="font-bold text-foreground text-sm">Cours terminé !</p>
@@ -144,18 +146,24 @@ export default function CourseDetail() {
             </div>
           ) : (
             /* ── En cours ── */
-            <div>
-              <div className="flex items-center justify-between mb-2.5">
-                <p className="text-sm font-semibold text-foreground">Ma progression</p>
-                <span className="text-xs font-bold text-primary">{completedLessons} / {totalLessons} leçons</span>
+            <div className="flex items-center gap-4 sm:gap-5">
+              <ProgressRing
+                value={completedLessons}
+                max={totalLessons}
+                size={64}
+                strokeWidth={6}
+                ariaLabel={`Progression du cours : ${pct} %`}
+                className="shrink-0"
+              >
+                <span className="text-sm font-extrabold text-primary">{pct}%</span>
+              </ProgressRing>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground mb-0.5">Ma progression</p>
+                <p className="text-xs text-muted-foreground">
+                  {completedLessons} leçon{completedLessons > 1 ? 's' : ''} terminée{completedLessons > 1 ? 's' : ''} sur {totalLessons}.
+                  Continuez, vous êtes sur la bonne voie !
+                </p>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all duration-700"
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1.5">{pct}% accompli</p>
             </div>
           )}
         </div>
@@ -237,10 +245,11 @@ export default function CourseDetail() {
       </div>
 
       {totalLessons === 0 ? (
-        <div className="bg-card border border-border rounded-2xl p-8 text-center">
-          <BookOpen className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground text-sm">Aucune leçon disponible pour ce cours.</p>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title="Aucune leçon pour l'instant"
+          description="Le formateur prépare le contenu de ce cours. Revenez bientôt !"
+        />
       ) : (
         <ol className="space-y-2 sm:space-y-2.5">
           {course?.lessons?.map((lesson, index) => {
@@ -254,14 +263,14 @@ export default function CourseDetail() {
                   style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
                   className={`animate-in fade-in slide-in-from-bottom-1 flex items-center gap-3 sm:gap-4 bg-card border rounded-xl sm:rounded-2xl p-3.5 sm:p-4 transition-all duration-200 group ${
                     done
-                      ? 'border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/3'
+                      ? 'border-success/20 hover:border-success/40 hover:bg-success/3'
                       : 'border-border hover:border-primary/30 hover:bg-primary/3'
-                  } hover:-translate-y-0.5 hover:shadow-lg`}
+                  } hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
                 >
                   {/* Numéro / check */}
                   {done ? (
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-success/10 border border-success/20 flex items-center justify-center shrink-0">
+                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-success" aria-hidden="true" />
                     </div>
                   ) : (
                     <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center text-sm font-bold shrink-0 group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all">
@@ -272,7 +281,7 @@ export default function CourseDetail() {
                   {/* Titre */}
                   <span className={`font-medium text-sm sm:text-base flex-1 min-w-0 truncate transition-colors ${
                     done
-                      ? 'text-foreground group-hover:text-emerald-500'
+                      ? 'text-foreground group-hover:text-success'
                       : 'text-foreground group-hover:text-primary'
                   }`}>
                     {lesson.title}
@@ -280,7 +289,7 @@ export default function CourseDetail() {
 
                   {/* Badge complété */}
                   {done && (
-                    <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full shrink-0 hidden sm:block">
+                    <span className="text-[10px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full shrink-0 hidden sm:block">
                       Terminée
                     </span>
                   )}

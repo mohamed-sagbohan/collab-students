@@ -1,10 +1,13 @@
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { BookOpen, CheckCircle, TrendingUp, ArrowRight, Flame, Zap } from 'lucide-react'
+import { BookOpen, CheckCircle, TrendingUp, ArrowRight, Flame, Zap, PlayCircle, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { buttonVariants } from '../../components/ui/Button'
+import { StatCard } from '../../components/ui/StatCard'
+import { ProgressBar } from '../../components/ui/ProgressBar'
+import { BarChart } from '../../components/ui/BarChart'
 import BadgeGrid from '../../components/BadgeGrid'
 import OnboardingModal from '../../components/OnboardingModal'
 
@@ -30,7 +33,7 @@ export default function StudentDashboard() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, isError } = useQuery({
     queryKey: ['progress-stats', user?.id],
     queryFn: async () => {
       const { data } = await supabase
@@ -74,9 +77,24 @@ export default function StudentDashboard() {
     enabled: !!user,
   })
 
+  // Dernière leçon terminée → carte « Reprendre » (lecture seule)
+  const { data: lastActivity } = useQuery({
+    queryKey: ['last-activity', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('progress')
+        .select('lesson_id, completed_at, lessons:lesson_id(id, title, course_id, courses:course_id(title))')
+        .eq('user_id', user.id)
+        .order('completed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return data ?? null
+    },
+    enabled: !!user,
+  })
+
   const streak = calcStreak(activityData)
   const pct = stats?.total ? Math.round((stats.completed / stats.total) * 100) : 0
-  const maxWpm = wpmHistory?.length ? Math.max(...wpmHistory.map((s) => s.wpm), 1) : 1
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -109,8 +127,47 @@ export default function StudentDashboard() {
           <Link to="/cours" className={buttonVariants()}>
             Voir le catalogue <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </Link>
+
+          {/* Progression globale intégrée au héros */}
+          {stats?.total > 0 && (
+            <div className="mt-6 max-w-md">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-foreground">Progression globale</p>
+                <p className="text-xs text-primary font-bold">{stats.completed}/{stats.total} leçons · {pct}%</p>
+              </div>
+              <ProgressBar value={stats.completed} max={stats.total} size="lg" label="Progression globale du parcours" />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Erreur de chargement */}
+      {isError && (
+        <div role="alert" className="flex items-center gap-2.5 bg-destructive/10 border border-destructive/20 text-destructive text-sm px-5 py-4 rounded-xl mb-5 sm:mb-6">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+          Impossible de charger vos statistiques. Vérifiez votre connexion puis rechargez la page.
+        </div>
+      )}
+
+      {/* Reprise rapide */}
+      {lastActivity?.lessons && (
+        <Link
+          to={`/cours/${lastActivity.lessons.course_id}`}
+          className="flex items-center gap-4 bg-card border border-border rounded-2xl p-4 sm:p-5 mb-5 sm:mb-6 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8 transition-all duration-200 motion-reduce:transition-none group"
+        >
+          <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
+            <PlayCircle className="w-5 h-5 text-primary" aria-hidden="true" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-muted-foreground mb-0.5">Continuer là où vous en étiez</p>
+            <p className="font-bold text-foreground text-sm truncate">{lastActivity.lessons.courses?.title}</p>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              Dernière leçon terminée : {lastActivity.lessons.title}
+            </p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-all shrink-0" aria-hidden="true" />
+        </Link>
+      )}
 
       {/* Statistiques */}
       <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-5 sm:mb-6">
@@ -118,87 +175,44 @@ export default function StudentDashboard() {
           Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 sm:h-24" />)
         ) : (
           <>
-            <div className="bg-card rounded-2xl border border-border p-3 sm:p-5 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
-                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-extrabold text-foreground">{stats?.total}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-tight">Leçons<br className="sm:hidden" /> commencées</p>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-2xl border border-border p-3 sm:p-5 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
-                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-extrabold text-foreground">{stats?.completed}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-tight">Leçons<br className="sm:hidden" /> complétées</p>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-2xl border border-border p-3 sm:p-5 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
-              <div className="w-9 h-9 sm:w-11 sm:h-11 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center shrink-0">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-extrabold text-foreground">{pct}%</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-tight">Taux de<br className="sm:hidden" /> complétion</p>
-              </div>
-            </div>
+            <StatCard icon={BookOpen} label="Leçons commencées" value={stats?.total ?? 0} />
+            <StatCard
+              icon={CheckCircle}
+              label="Leçons complétées"
+              value={stats?.completed ?? 0}
+              color="text-success"
+              bg="bg-success/10"
+              border="border-success/20"
+              delay={60}
+            />
+            <StatCard
+              icon={TrendingUp}
+              label="Taux de complétion"
+              value={`${pct}%`}
+              color="text-warning"
+              bg="bg-warning/10"
+              border="border-warning/20"
+              delay={120}
+            />
           </>
         )}
       </div>
-
-      {/* Barre de progression */}
-      {stats?.total > 0 && (
-        <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 mb-5 sm:mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <p className="font-semibold text-foreground text-sm">Progression globale</p>
-            <p className="text-sm text-primary font-bold">{stats.completed}/{stats.total}</p>
-          </div>
-          <div className="h-2.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-700"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">{pct}% du parcours accompli</p>
-        </div>
-      )}
 
       {/* Graphique WPM */}
       {wpmHistory?.length > 0 && (
         <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 mb-5 sm:mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <Zap className="w-4 h-4 text-primary" />
+            <Zap className="w-4 h-4 text-primary" aria-hidden="true" />
             <p className="font-semibold text-foreground text-sm">Progression en dactylographie</p>
             <span className="ml-auto text-xs text-muted-foreground">
               {wpmHistory.length} session{wpmHistory.length > 1 ? 's' : ''}
             </span>
           </div>
-          <div className="flex items-end gap-1.5 h-24">
-            {wpmHistory.map((s, i) => {
-              const h = Math.max(4, Math.round((s.wpm / maxWpm) * 96))
-              const isLast = i === wpmHistory.length - 1
-              return (
-                <div
-                  key={i}
-                  className="flex-1 flex flex-col items-center gap-1 min-w-0"
-                  title={`${s.wpm} mots/min`}
-                >
-                  <span className={`text-[10px] leading-none ${isLast ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-                    {s.wpm}
-                  </span>
-                  <div
-                    className={`w-full rounded-t-sm transition-all ${isLast ? 'bg-primary' : 'bg-primary/30'}`}
-                    style={{ height: `${h}px` }}
-                  />
-                </div>
-              )
-            })}
-          </div>
+          <BarChart
+            data={wpmHistory.map((s) => ({ label: '', values: [s.wpm] }))}
+            highlightLast
+            ariaLabel="Progression en dactylographie, en mots par minute, de la plus ancienne à la plus récente session"
+          />
           <p className="text-[10px] text-muted-foreground mt-2 text-center">
             Ancienne → Récente · mots/min
           </p>

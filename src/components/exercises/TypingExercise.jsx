@@ -3,12 +3,15 @@ import { useQuery } from '@tanstack/react-query'
 import { RotateCcw, Target, Zap, Clock, Lightbulb, MessageSquare, TrendingUp } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Button } from '../ui/Button'
+import { BarChart } from '../ui/BarChart'
+import { ProgressBar } from '../ui/ProgressBar'
+import { Confetti } from '../ui/Confetti'
 
 const LEVELS = [
-  { min: 0,  max: 14, label: 'Débutant',      color: 'text-red-500',     bg: 'bg-red-500/10',     border: 'border-red-500/20',     emoji: '🐢' },
-  { min: 15, max: 29, label: 'Intermédiaire',  color: 'text-amber-500',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   emoji: '🚶' },
-  { min: 30, max: 49, label: 'Avancé',         color: 'text-primary',     bg: 'bg-primary/10',     border: 'border-primary/20',     emoji: '🚴' },
-  { min: 50, max: Infinity, label: 'Expert',   color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', emoji: '🚀' },
+  { min: 0,  max: 14, label: 'Débutant',      color: 'text-destructive', bg: 'bg-destructive/10', border: 'border-destructive/20', emoji: '🐢' },
+  { min: 15, max: 29, label: 'Intermédiaire',  color: 'text-warning',    bg: 'bg-warning/10',     border: 'border-warning/20',     emoji: '🚶' },
+  { min: 30, max: 49, label: 'Avancé',         color: 'text-primary',    bg: 'bg-primary/10',     border: 'border-primary/20',     emoji: '🚴' },
+  { min: 50, max: Infinity, label: 'Expert',   color: 'text-success',    bg: 'bg-success/10',     border: 'border-success/20',     emoji: '🚀' },
 ]
 
 function getLevel(wpm) {
@@ -100,34 +103,22 @@ function WpmHistoryBar({ exerciseId, userId, currentWpm }) {
   if (!sessions?.length) return null
 
   const reversed = [...sessions].reverse()
-  const maxWpm = Math.max(...reversed.map((s) => s.wpm), currentWpm, 1)
 
   return (
     <div className="bg-card border border-border rounded-xl p-4">
       <div className="flex items-center gap-2 mb-3">
-        <TrendingUp className="w-4 h-4 text-amber-500" />
+        <TrendingUp className="w-4 h-4 text-primary" aria-hidden="true" />
         <p className="text-sm font-bold text-foreground">Progression sur cet exercice</p>
         <span className="ml-auto text-[10px] text-muted-foreground">{reversed.length + 1} sessions</span>
       </div>
-      <div className="flex items-end gap-1.5 h-20">
-        {reversed.map((s, i) => {
-          const h = Math.max(4, Math.round((s.wpm / maxWpm) * 80))
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0" title={`${s.wpm} mots/min`}>
-              <span className="text-[10px] text-muted-foreground leading-none">{s.wpm}</span>
-              <div className="w-full bg-muted rounded-t-sm transition-all" style={{ height: `${h}px` }} />
-            </div>
-          )
-        })}
-        {/* Session actuelle (surlignée) */}
-        <div className="flex-1 flex flex-col items-center gap-1 min-w-0" title={`${currentWpm} mots/min — cette session`}>
-          <span className="text-[10px] text-primary font-bold leading-none">{currentWpm}</span>
-          <div
-            className="w-full bg-primary rounded-t-sm transition-all"
-            style={{ height: `${Math.max(4, Math.round((currentWpm / maxWpm) * 80))}px` }}
-          />
-        </div>
-      </div>
+      <BarChart
+        data={[
+          ...reversed.map((s) => ({ label: '', values: [s.wpm] })),
+          { label: '', values: [currentWpm] },
+        ]}
+        highlightLast
+        ariaLabel="Historique de vos vitesses de frappe sur cet exercice, en mots par minute, la dernière barre étant la session actuelle"
+      />
       <p className="text-[10px] text-muted-foreground mt-2 text-center">Sessions précédentes → Session actuelle</p>
     </div>
   )
@@ -140,12 +131,13 @@ function TypingResults({ result, text, typed, onRetry, exerciseId, userId }) {
   const nextLevel = LEVELS[LEVELS.findIndex((l) => l.label === level.label) + 1]
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="relative space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Confetti active={wpm >= 30 && accuracy >= 85} />
 
       {/* Badge niveau + appréciation */}
       <div className={`${level.bg} border ${level.border} rounded-2xl p-5`}>
         <div className="flex items-center gap-4 mb-3">
-          <span className="text-4xl animate-in zoom-in duration-500">{level.emoji}</span>
+          <span className="text-4xl animate-in zoom-in duration-500 motion-reduce:animate-none">{level.emoji}</span>
           <div>
             <p className={`text-xl font-extrabold ${level.color}`}>{level.label}</p>
             <p className="text-sm text-muted-foreground">Votre niveau de frappe</p>
@@ -168,9 +160,9 @@ function TypingResults({ result, text, typed, onRetry, exerciseId, userId }) {
         </div>
         <div className="bg-card border border-border rounded-xl p-4 text-center">
           <div className="flex justify-center mb-2">
-            <Target className={`w-5 h-5 ${accuracy >= 90 ? 'text-emerald-500' : accuracy >= 70 ? 'text-amber-500' : 'text-red-500'}`} />
+            <Target className={`w-5 h-5 ${accuracy >= 90 ? 'text-success' : accuracy >= 70 ? 'text-warning' : 'text-destructive'}`} aria-hidden="true" />
           </div>
-          <p className={`text-3xl font-extrabold ${accuracy >= 90 ? 'text-emerald-500' : accuracy >= 70 ? 'text-amber-500' : 'text-red-500'}`}>{accuracy}%</p>
+          <p className={`text-3xl font-extrabold ${accuracy >= 90 ? 'text-success' : accuracy >= 70 ? 'text-warning' : 'text-destructive'}`}>{accuracy}%</p>
           <p className="text-xs text-muted-foreground mt-1">précision</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 text-center">
@@ -189,14 +181,11 @@ function TypingResults({ result, text, typed, onRetry, exerciseId, userId }) {
             <span className="text-muted-foreground">Progression vers {nextLevel.label}</span>
             <span className="text-primary">{Math.max(0, nextLevel.min - wpm)} mots/min manquants</span>
           </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            {(() => {
-              const idx = LEVELS.findIndex((l) => l.label === level.label)
-              const cur = LEVELS[idx]
-              const pct = Math.min(100, ((wpm - cur.min) / (nextLevel.min - cur.min)) * 100)
-              return <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-            })()}
-          </div>
+          <ProgressBar
+            value={Math.max(0, wpm - level.min)}
+            max={nextLevel.min - level.min}
+            label={`Progression vers le niveau ${nextLevel.label}`}
+          />
         </div>
       )}
 
@@ -208,7 +197,7 @@ function TypingResults({ result, text, typed, onRetry, exerciseId, userId }) {
       {/* Recommandations */}
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
-          <Lightbulb className="w-4 h-4 text-amber-500" />
+          <Lightbulb className="w-4 h-4 text-warning" aria-hidden="true" />
           <p className="text-sm font-bold text-foreground">Conseils pour progresser</p>
         </div>
         {tips.map((tip, i) => (
@@ -226,7 +215,7 @@ function TypingResults({ result, text, typed, onRetry, exerciseId, userId }) {
           {text.split('').map((char, i) => {
             if (i >= typed.length) return <span key={i} className="text-muted-foreground/40">{char}</span>
             return (
-              <span key={i} className={typed[i] === char ? 'text-emerald-500' : 'bg-red-500/20 text-red-500 rounded'}>
+              <span key={i} className={typed[i] === char ? 'text-success' : 'bg-destructive/20 text-destructive rounded'}>
                 {char}
               </span>
             )
@@ -336,15 +325,15 @@ export default function TypingExercise({ text, timeUp, onComplete, onStart, exer
           let cls = 'text-muted-foreground'
           if (i < typed.length) {
             cls = typed[i] === char
-              ? 'text-emerald-500'
-              : 'bg-red-500/20 text-red-500 rounded-sm'
+              ? 'text-success'
+              : 'bg-destructive/20 text-destructive rounded-sm'
           } else if (i === typed.length) {
             cls = 'bg-primary/30 text-foreground border-b-2 border-primary'
           }
           return (
             <span key={i} className={cls}>
               {char === ' ' && i < typed.length
-                ? <span className={typed[i] === ' ' ? '' : 'bg-red-500/20'}>&nbsp;</span>
+                ? <span className={typed[i] === ' ' ? '' : 'bg-destructive/20'}>&nbsp;</span>
                 : char}
             </span>
           )
@@ -357,7 +346,7 @@ export default function TypingExercise({ text, timeUp, onComplete, onStart, exer
           <span>{typed.length} / {text.length} caractères</span>
           {startTime
             ? <span className="text-primary font-medium">⏱ {elapsedDisplay}s</span>
-            : <span className="text-amber-500">⌨️ Commencez à taper pour démarrer le chrono</span>
+            : <span className="text-warning">⌨️ Commencez à taper pour démarrer le chrono</span>
           }
         </div>
         <div className="h-2 bg-muted rounded-full overflow-hidden">

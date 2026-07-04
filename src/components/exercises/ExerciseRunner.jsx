@@ -6,6 +6,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
+import { ProgressRing } from '../ui/ProgressRing'
+import { Confetti } from '../ui/Confetti'
 import ExerciseTimer from '../ExerciseTimer'
 import TypingExercise from './TypingExercise'
 
@@ -62,11 +64,11 @@ function QuestionVraiFaux({ question, selected, onSelect, disabled }) {
               key={opt}
               onClick={() => !disabled && onSelect(opt)}
               disabled={disabled}
-              className={`flex items-center justify-center gap-2 py-5 rounded-xl border text-base font-bold transition-all ${
+              className={`flex items-center justify-center gap-2 py-5 rounded-xl border text-base font-bold transition-all motion-reduce:transition-none ${
                 isSelected
                   ? opt === 'Vrai'
-                    ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500 scale-[1.02]'
-                    : 'bg-red-500/10 border-red-500 text-red-500 scale-[1.02]'
+                    ? 'bg-success/10 border-success text-success scale-[1.02]'
+                    : 'bg-destructive/10 border-destructive text-destructive scale-[1.02]'
                   : 'bg-card border-border text-foreground hover:border-primary/40 hover:bg-primary/5'
               } disabled:opacity-60 disabled:cursor-not-allowed disabled:scale-100`}
             >
@@ -80,30 +82,6 @@ function QuestionVraiFaux({ question, selected, onSelect, disabled }) {
         })}
       </div>
     </div>
-  )
-}
-
-/* ══════════════════════════════════════════════════════════════
-   Anneau de score
-══════════════════════════════════════════════════════════════ */
-function ScoreRing({ pct, strokeClassName }) {
-  const size = 96
-  const stroke = 8
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (Math.max(0, Math.min(100, pct)) / 100) * circumference
-
-  return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} fill="none" className="stroke-muted" />
-      <circle
-        cx={size / 2} cy={size / 2} r={radius} strokeWidth={stroke} fill="none"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        className={`${strokeClassName} transition-[stroke-dashoffset] duration-700 ease-out`}
-      />
-    </svg>
   )
 }
 
@@ -128,57 +106,69 @@ function QuizResults({ questions, qcmResult, timeUp, onRetry }) {
   const total = qcmResult.total
   const pct = qcmResult.score_pct
 
-  const scoreColor = pct >= 80 ? 'text-emerald-500' : pct >= 50 ? 'text-amber-500' : 'text-red-500'
-  const scoreBg = pct >= 80 ? 'bg-emerald-500/10 border-emerald-500/20' : pct >= 50 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'
-  const ringStroke = pct >= 80 ? 'stroke-emerald-500' : pct >= 50 ? 'stroke-amber-500' : 'stroke-red-500'
+  const tier = pct >= 80 ? 'success' : pct >= 50 ? 'warning' : 'destructive'
+  const scoreColor = { success: 'text-success', warning: 'text-warning', destructive: 'text-destructive' }[tier]
+  const scoreBg = {
+    success: 'bg-success/10 border-success/20',
+    warning: 'bg-warning/10 border-warning/20',
+    destructive: 'bg-destructive/10 border-destructive/20',
+  }[tier]
   const TierIcon = pct >= 80 ? Trophy : pct >= 50 ? Target : BookOpen
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="relative space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Confetti active={pct >= 80} />
+
       {/* En-tête de la fiche — bilan à l'écran uniquement, non téléchargeable */}
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
-          <ClipboardList className="w-4 h-4 text-primary" />
+          <ClipboardList className="w-4 h-4 text-primary" aria-hidden="true" />
         </div>
         <h3 className="text-sm font-bold text-foreground">Fiche de résultats</h3>
       </div>
 
       {timeUp && (
-        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-medium px-4 py-3 rounded-xl">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium px-4 py-3 rounded-xl">
+          <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
           Temps écoulé — exercice soumis automatiquement
         </div>
       )}
 
-      {/* Score global */}
-      <div className={`${scoreBg} border rounded-2xl p-6 text-center`}>
-        <div className="relative w-24 h-24 mx-auto mb-3">
-          <ScoreRing pct={pct} strokeClassName={ringStroke} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <TierIcon className={`w-8 h-8 ${scoreColor}`} />
-          </div>
-        </div>
+      {/* Score global — mis en scène */}
+      <div className={`${scoreBg} border rounded-2xl p-6 text-center animate-in fade-in zoom-in-95 duration-500 motion-reduce:animate-none`}>
+        <ProgressRing
+          value={pct}
+          size={96}
+          variant={tier}
+          ariaLabel={`Score : ${pct} %`}
+          className="mx-auto mb-3"
+        >
+          <TierIcon className={`w-8 h-8 ${scoreColor}`} aria-hidden="true" />
+        </ProgressRing>
         <p className={`text-4xl font-extrabold ${scoreColor}`}>{pct}%</p>
         <p className="text-muted-foreground mt-1 text-sm">
           {correct}/{total} bonnes réponses
         </p>
         <p className={`text-sm font-semibold mt-2 ${scoreColor}`}>
-          {pct >= 80 ? 'Excellent travail !' : pct >= 50 ? 'Pas mal, continuez !' : 'Relisez la leçon et réessayez'}
+          {pct >= 80 ? 'Excellent travail, bravo !' : pct >= 50 ? 'Pas mal, continuez !' : 'Relisez la leçon et réessayez — vous allez y arriver.'}
         </p>
       </div>
 
-      {/* Détail question par question */}
+      {/* Détail question par question — apparition échelonnée */}
       <div className="space-y-3">
         {scored.map((q, i) => (
           <div
             key={q.id}
-            className={`rounded-xl border p-4 ${q.isCorrect ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20'}`}
+            style={{ animationDelay: `${Math.min(i, 8) * 80 + 200}ms` }}
+            className={`rounded-xl border p-4 animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none ${
+              q.isCorrect ? 'bg-success/5 border-success/20' : 'bg-destructive/5 border-destructive/20'
+            }`}
           >
             <div className="flex items-start gap-3">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${q.isCorrect ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${q.isCorrect ? 'bg-success/15' : 'bg-destructive/15'}`}>
                 {q.isCorrect
-                  ? <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  : <XCircle className="w-4 h-4 text-red-500" />
+                  ? <CheckCircle className="w-4 h-4 text-success" aria-hidden="true" />
+                  : <XCircle className="w-4 h-4 text-destructive" aria-hidden="true" />
                 }
               </div>
               <div className="flex-1 min-w-0">
@@ -186,12 +176,12 @@ function QuizResults({ questions, qcmResult, timeUp, onRetry }) {
                   Q{i + 1} — {q.question}
                 </p>
                 {q.userAnswer && !q.isCorrect && (
-                  <p className="text-xs text-red-500 mb-1">
+                  <p className="text-xs text-destructive mb-1">
                     Votre réponse : <span className="font-semibold">{q.userAnswer}</span>
                   </p>
                 )}
                 {!q.isCorrect && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  <p className="text-xs text-success">
                     Bonne réponse : <span className="font-semibold">{q.correct_answer}</span>
                   </p>
                 )}
@@ -200,7 +190,7 @@ function QuizResults({ questions, qcmResult, timeUp, onRetry }) {
                 )}
                 {!q.isCorrect && q.explanation && (
                   <div className="flex items-start gap-1.5 mt-2 bg-muted/50 rounded-lg px-3 py-2">
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <Lightbulb className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" aria-hidden="true" />
                     <p className="text-xs text-muted-foreground leading-relaxed">{q.explanation}</p>
                   </div>
                 )}
@@ -254,8 +244,8 @@ function ExerciseIdle({ exercise, questionCount, onStart, onStartTraining }) {
       </div>
 
       {exercise.duration_seconds && !hasDactylo && (
-        <p className="flex items-center gap-1.5 text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2 mb-6 inline-flex">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+        <p className="flex items-center gap-1.5 text-xs text-warning bg-warning/10 border border-warning/20 rounded-xl px-4 py-2 mb-6 inline-flex">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           Soumission automatique à la fin du temps imparti
         </p>
       )}

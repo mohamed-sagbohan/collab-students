@@ -30,17 +30,17 @@ export default function ExerciseTimer({ duration, running, onTimeUp }) {
 
   const color = !running
     ? 'text-muted-foreground'
-    : remaining === 0 ? 'text-red-500'
-    : pct <= 25 ? 'text-red-500'
-    : pct <= 50 ? 'text-amber-500'
-    : 'text-emerald-500'
+    : remaining === 0 ? 'text-destructive'
+    : pct <= 25 ? 'text-destructive'
+    : pct <= 50 ? 'text-warning'
+    : 'text-success'
 
   const barColor = !running
     ? 'bg-muted-foreground/30'
-    : remaining === 0 ? 'bg-red-500'
-    : pct <= 25 ? 'bg-red-500'
-    : pct <= 50 ? 'bg-amber-500'
-    : 'bg-emerald-500'
+    : remaining === 0 ? 'bg-destructive'
+    : pct <= 25 ? 'bg-destructive'
+    : pct <= 50 ? 'bg-warning'
+    : 'bg-success'
 
   return (
     <div className="flex items-center gap-3">
@@ -58,7 +58,7 @@ export default function ExerciseTimer({ duration, running, onTimeUp }) {
         <span className="text-xs font-medium text-muted-foreground shrink-0">En attente</span>
       )}
       {remaining === 0 && (
-        <span className="text-xs font-semibold text-red-500 shrink-0">Temps écoulé !</span>
+        <span className="text-xs font-semibold text-destructive shrink-0">Temps écoulé !</span>
       )}
     </div>
   )

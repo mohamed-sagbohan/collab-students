@@ -185,8 +185,8 @@ export default function LessonReader() {
       <div className="border border-border rounded-2xl p-5 sm:p-6 bg-card">
         {progress?.completed ? (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
-              <CheckCircle className="w-5 h-5 text-emerald-500" />
+            <div className="w-10 h-10 bg-success/10 border border-success/20 rounded-xl flex items-center justify-center shrink-0">
+              <CheckCircle className="w-5 h-5 text-success" aria-hidden="true" />
             </div>
             <div>
               <p className="font-bold text-foreground text-sm">Leçon complétée !</p>
