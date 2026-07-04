@@ -2,8 +2,11 @@ import { Link } from 'react-router'
 import { BookOpen, Zap, TrendingUp, ArrowRight, CheckCircle, GraduationCap, Sparkles, Shield, Users, Lock } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
 import Reveal from '../components/Reveal'
+import TypingDemo from '../components/landing/TypingDemo'
 import { buttonVariants } from '../components/ui/Button'
+import { Avatar } from '../components/ui/Avatar'
 import { cn } from '../lib/utils'
+import { STATS, STAT_ITEMS, TESTIMONIALS, FOOTER_LINKS } from '../lib/siteContent'
 
 const features = [
   {
@@ -36,19 +39,6 @@ const features = [
     title: '100% gratuit',
     desc: 'Toute la plateforme, tous les cours, tous les exercices — sans frais, sans limite.',
   },
-]
-
-const stats = [
-  { value: '1 200+', label: 'Apprenants actifs' },
-  { value: '9', label: 'Cours disponibles' },
-  { value: '36+', label: 'Leçons interactives' },
-  { value: '100%', label: 'Gratuit' },
-]
-
-const mockCourses = [
-  { title: 'Maîtriser son ordinateur', progress: 75 },
-  { title: 'Internet et navigation web', progress: 33 },
-  { title: 'Word – Traitement de texte', progress: 0 },
 ]
 
 export default function Landing() {
@@ -126,14 +116,14 @@ export default function Landing() {
                       <div key={i} className={`w-6 h-6 rounded-full bg-gradient-to-br ${g} border-2 border-background`} />
                     ))}
                   </div>
-                  <span>1 200+ apprenants</span>
+                  <span>{STATS.learners} apprenants</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-primary">★★★★★</span>
-                  <span>4.9/5</span>
+                  <span className="text-primary" aria-hidden="true">★★★★★</span>
+                  <span>{STATS.rating}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  <CheckCircle className="w-4 h-4 text-success" aria-hidden="true" />
                   <span>Sans carte bancaire</span>
                 </div>
               </div>
@@ -151,8 +141,8 @@ export default function Landing() {
               </div>
               {/* Carte flottante bas */}
               <div className="absolute -bottom-4 -left-4 bg-card border border-border rounded-2xl shadow-2xl p-3 z-10 flex items-center gap-3">
-                <div className="w-9 h-9 bg-emerald-500/15 rounded-xl flex items-center justify-center shrink-0">
-                  <CheckCircle className="w-5 h-5 text-emerald-500" />
+                <div className="w-9 h-9 bg-success/15 rounded-xl flex items-center justify-center shrink-0">
+                  <CheckCircle className="w-5 h-5 text-success" aria-hidden="true" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-foreground">Exercice réussi !</p>
@@ -179,25 +169,9 @@ export default function Landing() {
                       </div>
                       <span className="font-bold text-primary text-xs">LearnIT</span>
                     </div>
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white text-xs font-bold">M</div>
+                    <Avatar name="Marie" size="sm" className="w-6 h-6 text-[10px]" />
                   </div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Mes cours</p>
-                  {mockCourses.map((c, i) => (
-                    <div key={i} className="mb-2.5 p-3 rounded-xl bg-muted flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${i === 0 ? 'bg-primary text-primary-foreground' : i === 1 ? 'bg-primary/20 text-primary' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate mb-1.5">{c.title}</p>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full" style={{ width: `${c.progress}%` }} />
-                          </div>
-                          <span className="text-xs font-semibold shrink-0 text-primary">{c.progress}%</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  <TypingDemo />
                 </div>
               </div>
             </div>
@@ -208,7 +182,7 @@ export default function Landing() {
         {/* ── STATS ── */}
         <section className="border-y border-border bg-card/50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-12 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
-            {stats.map(({ value, label }, i) => (
+            {STAT_ITEMS.map(({ value, label }, i) => (
               <Reveal key={label} delay={i * 80}>
                 <p className="text-3xl sm:text-4xl font-extrabold text-foreground">{value}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1.5">{label}</p>
@@ -218,7 +192,7 @@ export default function Landing() {
         </section>
 
         {/* ── FEATURES ── */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+        <section id="fonctionnalites" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 scroll-mt-16">
           <div className="text-center mb-12 sm:mb-16">
             {/* Section badge */}
             <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
@@ -246,7 +220,7 @@ export default function Landing() {
         </section>
 
         {/* ── PARCOURS ── */}
-        <section className="bg-card/50 border-y border-border py-16 sm:py-24">
+        <section id="parcours" className="bg-card/50 border-y border-border py-16 sm:py-24 scroll-mt-16">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="text-center mb-12 sm:mb-16">
               <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
@@ -258,7 +232,7 @@ export default function Landing() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {[
                 { n: '01', title: 'Créez votre compte', desc: 'Inscription gratuite en 30 secondes, sans carte bancaire.' },
-                { n: '02', title: 'Choisissez un cours', desc: '9 cours du niveau débutant absolu couvrant tous les essentiels.' },
+                { n: '02', title: 'Choisissez un cours', desc: `${STATS.courses} cours du niveau débutant absolu couvrant tous les essentiels.` },
                 { n: '03', title: 'Suivez les leçons', desc: 'Contenu clair, illustré, à lire à votre propre rythme.' },
                 { n: '04', title: 'Validez vos acquis', desc: 'Exercices interactifs corrigés instantanément pour ancrer vos connaissances.' },
               ].map(({ n, title, desc }, i) => (
@@ -274,8 +248,38 @@ export default function Landing() {
           </div>
         </section>
 
+        {/* ── TÉMOIGNAGES ── */}
+        <section id="temoignages" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 scroll-mt-16">
+          <div className="text-center mb-12 sm:mb-16">
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+              Ils apprennent avec LearnIT
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground mb-4">Des progrès dont ils sont fiers</h2>
+            <p className="text-xs text-muted-foreground">Témoignages illustratifs — données de démonstration.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+            {TESTIMONIALS.map((t, i) => (
+              <Reveal key={t.name} delay={i * 100}>
+                <figure className="bg-card border border-border rounded-2xl p-6 h-full flex flex-col">
+                  <p className="text-primary text-sm mb-3" aria-hidden="true">★★★★★</p>
+                  <blockquote className="text-sm text-foreground leading-relaxed flex-1">
+                    « {t.quote} »
+                  </blockquote>
+                  <figcaption className="flex items-center gap-3 mt-5 pt-4 border-t border-border">
+                    <Avatar name={t.name} size="lg" />
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">{t.role}</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
         {/* ── CTA ── */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16 sm:pb-24">
           <Reveal className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-card border border-border p-8 sm:p-16 text-center">
             {/* Glow */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
@@ -289,7 +293,7 @@ export default function Landing() {
                 <span className="text-primary">l'informatique ?</span>
               </h2>
               <p className="text-muted-foreground mb-8 sm:text-lg max-w-md mx-auto">
-                Rejoignez 1 200+ apprenants et commencez aujourd'hui, sans frais, sans engagement.
+                Rejoignez {STATS.learners} apprenants et commencez aujourd'hui, sans frais, sans engagement.
               </p>
               <Link
                 to="/register"
@@ -303,15 +307,53 @@ export default function Landing() {
 
       </main>
 
-      <footer className="border-t border-border bg-card py-8 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center sm:justify-between text-sm text-muted-foreground gap-3 text-center sm:text-left">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-primary rounded-md flex items-center justify-center">
-              <GraduationCap className="w-3.5 h-3.5 text-primary-foreground" />
+      <footer className="border-t border-border bg-card py-10 sm:py-12 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6 mb-8">
+          {/* Marque */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center">
+                <GraduationCap className="w-4 h-4 text-primary-foreground" aria-hidden="true" />
+              </div>
+              <span className="font-bold text-foreground">LearnIT</span>
             </div>
-            <span className="font-bold text-foreground">LearnIT</span>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
+              La plateforme gratuite d'initiation à l'informatique, pensée pour les vrais débutants.
+            </p>
           </div>
+
+          {/* Navigation */}
+          <nav aria-label="Navigation du site">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Découvrir</p>
+            <ul className="space-y-2">
+              {FOOTER_LINKS.navigation.map((l) => (
+                <li key={l.label}>
+                  <a href={l.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Compte */}
+          <nav aria-label="Compte">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Votre compte</p>
+            <ul className="space-y-2">
+              {FOOTER_LINKS.compte.map((l) => (
+                <li key={l.label}>
+                  <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {l.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+
+        <div className="max-w-6xl mx-auto pt-6 border-t border-border/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-muted-foreground text-center sm:text-left">
           <p>© {new Date().getFullYear()} LearnIT — Plateforme d'initiation à l'informatique</p>
+          <p>Projet pédagogique de démonstration.</p>
         </div>
       </footer>
 
