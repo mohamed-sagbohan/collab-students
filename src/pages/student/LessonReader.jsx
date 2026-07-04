@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
-import { CheckCircle, ArrowLeft, ArrowRight, Zap, Clock } from 'lucide-react'
+import { CheckCircle, ArrowLeft, ArrowRight, Zap, Clock, HelpCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
@@ -9,15 +9,17 @@ import { injectHeadingIds, extractHeadings, readingTimeMinutes } from '../../lib
 import { Skeleton } from '../../components/Skeleton'
 import { Button } from '../../components/ui/Button'
 import { useToast } from '../../components/ui/Toast'
+import { useChatWidget } from '../../components/chat/ChatWidget'
 import ExerciseRunner from '../../components/exercises/ExerciseRunner'
 import { useKeyboardType, KeyboardSelector, KeyboardCheatSheet } from '../../components/KeyboardSetup'
 import LessonComments from '../../components/LessonComments'
 
 export default function LessonReader() {
   const { courseId, lessonId } = useParams()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const toast = useToast()
+  const chat = useChatWidget()
   const [kbType, selectKb, resetKb] = useKeyboardType()
   const [readProgress, setReadProgress] = useState(0)
 
@@ -210,6 +212,19 @@ export default function LessonReader() {
           </div>
         )}
       </div>
+
+      {/* Besoin d'aide : ouvre le chat avec le contexte de la leçon */}
+      {profile?.role === 'apprenante' && chat && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="secondary"
+            onClick={() => chat.openChat({ lesson: { id: lessonId, title: lesson?.title } })}
+          >
+            <HelpCircle className="w-4 h-4 text-primary" aria-hidden="true" />
+            Je n'ai pas compris, poser une question
+          </Button>
+        </div>
+      )}
 
       {/* Exercices */}
       {lesson?.exercises?.length > 0 && (
