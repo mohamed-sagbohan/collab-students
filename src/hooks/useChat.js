@@ -207,7 +207,11 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
   useEffect(() => {
     if (!conversationId || !user) return
 
-    const channel = supabase.channel(`chat-conv-${conversationId}`)
+    // Canal privé (migration 018) : seuls la propriétaire de la conversation
+    // et le staff peuvent le rejoindre — policies RLS sur realtime.messages.
+    const channel = supabase.channel(`chat-conv-${conversationId}`, {
+      config: { private: true },
+    })
 
     // Tous les bindings AVANT subscribe() — on ne peut pas en ajouter après.
     if (withPostgres) {
@@ -225,23 +229,30 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
       typingTimerRef.current = setTimeout(() => setPeerTyping(null), 3000)
     })
 
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        setConnected(true)
-        if (hadDisconnectRef.current) {
-          // Rattrapage après coupure : des messages ont pu être manqués.
-          hadDisconnectRef.current = false
-          queryClient.invalidateQueries({ queryKey: ['chat-messages', conversationId] })
-          queryClient.invalidateQueries({ queryKey: ['chat-unread', conversationId] })
+    // Les canaux privés exigent un jeton realtime à jour ; supabase-js le
+    // propage automatiquement, on force par sécurité avant la souscription.
+    let cancelled = false
+    Promise.resolve(supabase.realtime.setAuth()).finally(() => {
+      if (cancelled) return
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setConnected(true)
+          if (hadDisconnectRef.current) {
+            // Rattrapage après coupure : des messages ont pu être manqués.
+            hadDisconnectRef.current = false
+            queryClient.invalidateQueries({ queryKey: ['chat-messages', conversationId] })
+            queryClient.invalidateQueries({ queryKey: ['chat-unread', conversationId] })
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setConnected(false)
+          hadDisconnectRef.current = true
         }
-      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-        setConnected(false)
-        hadDisconnectRef.current = true
-      }
+      })
     })
 
     channelRef.current = channel
     return () => {
+      cancelled = true
       clearTimeout(typingTimerRef.current)
       setPeerTyping(null)
       channelRef.current = null
@@ -271,8 +282,10 @@ export function useChatPresence({ trackSelf = false } = {}) {
 
   useEffect(() => {
     if (!user) return
+    // Canal privé (migration 018) : présence réservée aux utilisateurs
+    // authentifiés, invisible pour les visiteurs anonymes.
     const channel = supabase.channel('chat-presence', {
-      config: { presence: { key: user.id } },
+      config: { private: true, presence: { key: user.id } },
     })
 
     const refresh = () => {
@@ -280,9 +293,12 @@ export function useChatPresence({ trackSelf = false } = {}) {
       setOnline(new Map(Object.entries(state).map(([key, metas]) => [key, metas[0]])))
     }
 
-    channel
-      .on('presence', { event: 'sync' }, refresh)
-      .subscribe(async (status) => {
+    channel.on('presence', { event: 'sync' }, refresh)
+
+    let cancelled = false
+    Promise.resolve(supabase.realtime.setAuth()).finally(() => {
+      if (cancelled) return
+      channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED' && trackSelf) {
           await channel.track({
             user_id: user.id,
@@ -291,8 +307,10 @@ export function useChatPresence({ trackSelf = false } = {}) {
           })
         }
       })
+    })
 
     return () => {
+      cancelled = true
       supabase.removeChannel(channel)
     }
   }, [user?.id, trackSelf, profile?.name, profile?.role]) // eslint-disable-line react-hooks/exhaustive-deps
