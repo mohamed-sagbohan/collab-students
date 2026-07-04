@@ -6,6 +6,7 @@ import { ThemeToggle } from '../components/ThemeToggle'
 import { SkipLink } from '../components/ui/SkipLink'
 import { NavItem } from '../components/ui/NavItem'
 import { Avatar } from '../components/ui/Avatar'
+import { Breadcrumb } from '../components/ui/Breadcrumb'
 
 const instructorLinks = [
   { to: '/formateur',         icon: LayoutDashboard, label: 'Tableau de bord' },
@@ -21,6 +22,24 @@ const adminLinks = [
   { to: '/admin/analytics',   icon: BarChart3,       label: 'Analytics' },
   { to: '/admin/editeur',     icon: PenSquare,       label: 'Éditeur' },
 ]
+
+/* Fil d'Ariane du header de contenu — uniquement pour les pages de premier
+   niveau : les pages profondes de l'éditeur affichent le leur. */
+function LayoutBreadcrumb({ pathname, isAdmin }) {
+  const root = isAdmin ? '/admin' : '/formateur'
+  if (pathname === root) return null
+  const links = isAdmin ? adminLinks : instructorLinks
+  const current = links.find((l) => l.to === pathname)
+  if (!current) return null
+  return (
+    <Breadcrumb
+      items={[
+        { label: isAdmin ? 'Administration' : 'Espace formateur', to: root },
+        { label: current.label },
+      ]}
+    />
+  )
+}
 
 function SidebarContent({ profile, logout, onClose }) {
   const links = profile?.role === 'admin' ? adminLinks : instructorLinks
@@ -125,13 +144,15 @@ export default function AdminLayout() {
 
       {/* Overlay mobile */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
         </div>
       )}
-      <aside className={`fixed top-0 left-0 bottom-0 z-50 w-72 bg-card border-r border-border flex flex-col lg:hidden transition-transform duration-300 ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <aside
+        aria-label="Menu de navigation"
+        className={`fixed top-0 left-0 bottom-0 z-50 w-72 bg-card border-r border-border flex flex-col lg:hidden transition-transform duration-300 ease-out motion-reduce:transition-none ${
+          sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        }`}>
         <SidebarContent profile={profile} logout={logout} onClose={() => setSidebarOpen(false)} />
       </aside>
 
@@ -156,7 +177,8 @@ export default function AdminLayout() {
         </header>
 
         <main id="main-content" tabIndex={-1} className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto focus:outline-none">
-          <div key={location.pathname} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div key={location.pathname} className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <LayoutBreadcrumb pathname={location.pathname} isAdmin={profile?.role === 'admin'} />
             <Outlet />
           </div>
         </main>

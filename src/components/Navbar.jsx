@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router'
-import { GraduationCap, BookOpen, LayoutDashboard, ChevronDown, LogOut } from 'lucide-react'
+import { GraduationCap, BookOpen, LayoutDashboard, ChevronDown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import SearchBar from './SearchBar'
 import NotificationBell from './NotificationBell'
+import ProfileMenu from './ProfileMenu'
 import { NavItem } from './ui/NavItem'
 import { Avatar } from './ui/Avatar'
 
 export default function Navbar() {
-  const { profile, logout } = useAuth()
+  const { profile } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -79,25 +80,7 @@ export default function Navbar() {
 
             {menuOpen && (
               <div className="absolute right-0 top-full mt-2 w-56 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden z-50 py-1">
-                <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-semibold text-foreground">{profile?.name}</p>
-                  <p className="text-xs text-primary font-medium capitalize mt-0.5">{profile?.role}</p>
-                </div>
-                {/* Recherche mobile */}
-                <div className="px-3 py-3 border-b border-border sm:hidden">
-                  <SearchBar />
-                </div>
-                <div className="px-4 py-3 border-b border-border sm:hidden">
-                  <p className="text-xs text-muted-foreground mb-2">Thème</p>
-                  <ThemeToggle />
-                </div>
-                <button
-                  onClick={() => { logout(); setMenuOpen(false) }}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Déconnexion
-                </button>
+                <ProfileMenu onClose={() => setMenuOpen(false)} searchInMenu />
               </div>
             )}
           </div>

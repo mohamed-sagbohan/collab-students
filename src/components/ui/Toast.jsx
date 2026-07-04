@@ -96,7 +96,7 @@ export function ToastProvider({ children }) {
         <div
           role="region"
           aria-label="Notifications"
-          className="fixed z-[120] bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-96 flex flex-col gap-2 pointer-events-none"
+          className="fixed z-[120] bottom-20 lg:bottom-6 inset-x-4 sm:inset-x-auto sm:right-6 sm:w-96 flex flex-col gap-2 pointer-events-none"
         >
           {toasts.map((t) => (
             <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
