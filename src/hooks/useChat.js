@@ -57,12 +57,13 @@ function replaceTemp(queryClient, conversationId, tempId, realRow) {
   })
 }
 
-function removeTemp(queryClient, conversationId, tempId) {
+/** Retire un message (temporaire ou supprimé) de toutes les pages du cache. */
+export function removeMessageFromCache(queryClient, conversationId, messageId) {
   queryClient.setQueryData(['chat-messages', conversationId], (old) => {
     if (!old) return old
     return {
       ...old,
-      pages: old.pages.map((p) => ({ ...p, messages: p.messages.filter((m) => m.id !== tempId) })),
+      pages: old.pages.map((p) => ({ ...p, messages: p.messages.filter((m) => m.id !== messageId) })),
     }
   })
 }
@@ -183,9 +184,31 @@ export function useSendMessage(conversationId) {
       replaceTemp(queryClient, conversationId, ctx.tempId, row)
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.tempId) removeTemp(queryClient, conversationId, ctx.tempId)
+      if (ctx?.tempId) removeMessageFromCache(queryClient, conversationId, ctx.tempId)
       toast.error('Message non envoyé. Vérifiez votre connexion et réessayez.')
     },
+  })
+}
+
+/* ── Suppression d'un message (le sien uniquement, RLS) ────────────── */
+
+export function useDeleteMessage(conversationId) {
+  const queryClient = useQueryClient()
+  const toast = useToast()
+
+  return useMutation({
+    mutationFn: async (messageId) => {
+      const { error } = await supabase.from('chat_messages').delete().eq('id', messageId)
+      if (error) throw error
+      return messageId
+    },
+    onSuccess: (messageId) => {
+      removeMessageFromCache(queryClient, conversationId, messageId)
+      // Aperçu/tri de la liste staff (sans effet côté apprenante : la clé n'existe pas)
+      queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
+      toast.success('Message supprimé.')
+    },
+    onError: () => toast.error('Impossible de supprimer le message. Réessayez.'),
   })
 }
 
@@ -219,6 +242,17 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
         (payload) => onInsertRef.current?.(payload.new)
+      )
+      // Suppressions (REPLICA IDENTITY FULL, migration 021) : le message
+      // disparaît en direct chez l'autre participant.
+      channel.on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          if (!payload.old?.id) return
+          removeMessageFromCache(queryClient, conversationId, payload.old.id)
+          queryClient.invalidateQueries({ queryKey: ['chat-unread', conversationId] })
+        }
       )
     }
 
@@ -457,6 +491,17 @@ export function useStaffChatRealtime() {
           if (queryClient.getQueryData(['chat-messages', row.conversation_id])) {
             const full = await fetchFullMessage(row.id)
             if (full) appendToCache(queryClient, row.conversation_id, full)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          const oldRow = payload.old
+          queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
+          if (oldRow?.conversation_id && queryClient.getQueryData(['chat-messages', oldRow.conversation_id])) {
+            removeMessageFromCache(queryClient, oldRow.conversation_id, oldRow.id)
           }
         }
       )

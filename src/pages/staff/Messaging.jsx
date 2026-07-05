@@ -22,6 +22,7 @@ import {
   useStudentsDirectory,
   useStartConversation,
   useSetConversationArchived,
+  useDeleteMessage,
 } from '../../hooks/useChat'
 
 function timeAgo(dateStr) {
@@ -103,6 +104,7 @@ export default function Messaging() {
   const { messages, isLoading: loadingMessages, isError: errorMessages, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useChatMessages(activeId)
   const sendMessage = useSendMessage(activeId)
+  const deleteMessage = useDeleteMessage(activeId)
   // Canal de la conversation ouverte : typing uniquement (les INSERT arrivent
   // déjà par le canal global chat-staff monté dans AdminLayout).
   const { sendTyping, peerTyping } = useConversationChannel({ conversationId: activeId, withPostgres: false })
@@ -390,6 +392,7 @@ export default function Messaging() {
                   currentUserId={user?.id}
                   onSend={(vars) => sendMessage.mutateAsync(vars)}
                   sending={sendMessage.isPending}
+                  onDelete={(id) => deleteMessage.mutate(id)}
                   sendTyping={sendTyping}
                   peerTyping={peerTyping}
                   showSenderInfo

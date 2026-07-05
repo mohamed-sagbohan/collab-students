@@ -1,9 +1,10 @@
 import { useRef, useState, useLayoutEffect } from 'react'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
+import { useConfirm } from '../ui/ConfirmDialog'
 
 /**
  * Fil de discussion partagé entre le widget apprenante et la page
@@ -52,11 +53,23 @@ function LessonContextCard({ message }) {
   return <span className="block mb-1 px-3 py-2 rounded-xl border border-primary/30 bg-primary/5 text-xs text-primary">{inner}</span>
 }
 
-function MessageBubble({ message, mine, showSenderInfo }) {
+function MessageBubble({ message, mine, showSenderInfo, onRequestDelete }) {
   const sender = message.profiles
   const label = roleLabel(sender?.role)
+  const canDelete = mine && !message.pending && onRequestDelete
   return (
-    <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex items-end gap-0.5 group', mine ? 'justify-end' : 'justify-start')}>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={() => onRequestDelete(message)}
+          aria-label="Supprimer ce message"
+          title="Supprimer"
+          className="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-lg text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-all opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
+      )}
       <div className="max-w-[82%] min-w-0">
         {!mine && showSenderInfo && sender?.name && (
           <p className="text-[11px] text-muted-foreground mb-0.5 ml-1">
@@ -166,10 +179,12 @@ export default function ChatThread({
   lessonContext = null,
   onClearLessonContext,
   showSenderInfo = false,
+  onDelete,
   emptyTitle = 'Aucun message pour l’instant',
   emptyDescription = 'Écrivez votre premier message ci-dessous.',
   composerPlaceholder,
 }) {
+  const confirm = useConfirm()
   const containerRef = useRef(null)
   const nearBottomRef = useRef(true)
   const prependRef = useRef(null)
@@ -182,6 +197,16 @@ export default function ChatThread({
     const el = containerRef.current
     if (el) el.scrollTop = el.scrollHeight
     setNewBelow(false)
+  }
+
+  async function requestDelete(message) {
+    const ok = await confirm({
+      title: 'Supprimer ce message ?',
+      description: 'Il sera supprimé pour tout le monde. Cette action est irréversible.',
+      confirmLabel: 'Supprimer',
+      danger: true,
+    })
+    if (ok) onDelete?.(message.id)
   }
 
   function onScroll() {
@@ -289,6 +314,7 @@ export default function ChatThread({
                     message={message}
                     mine={message.sender_id === currentUserId}
                     showSenderInfo={showSenderInfo}
+                    onRequestDelete={onDelete ? requestDelete : undefined}
                   />
                 </li>
               )
