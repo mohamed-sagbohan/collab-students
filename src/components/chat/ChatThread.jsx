@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, useLayoutEffect } from 'react'
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
 import { useConfirm } from '../ui/ConfirmDialog'
-import { isWithinEditWindow } from '../../hooks/useChat'
+import { isWithinEditWindow, getChatAudioUrl } from '../../hooks/useChat'
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 
 /**
  * Fil de discussion partagé entre le widget apprenante et la page
@@ -32,6 +33,80 @@ function roleLabel(role) {
   if (role === 'formateur') return 'Formateur'
   if (role === 'admin') return 'Équipe LearnIT'
   return null
+}
+
+function fmtDuration(sec) {
+  if (!sec) return ''
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/** Note vocale dans une bulle : URL signée chargée au premier clic, puis lecteur natif. */
+function VoiceNote({ message, mine }) {
+  const [url, setUrl] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const durLabel = fmtDuration(message.audio_duration_sec)
+
+  async function load() {
+    setLoading(true)
+    setFailed(false)
+    const signed = await getChatAudioUrl(message.audio_path)
+    if (signed) setUrl(signed)
+    else setFailed(true)
+    setLoading(false)
+  }
+
+  if (message.pending) {
+    return (
+      <span className="flex items-center gap-2 text-sm py-1">
+        <Mic className="w-4 h-4 shrink-0" aria-hidden="true" />
+        Note vocale{durLabel && ` (${durLabel})`}
+      </span>
+    )
+  }
+
+  if (url) {
+    return (
+      <audio
+        controls
+        autoPlay
+        src={url}
+        className="w-56 max-w-full"
+        aria-label={`Note vocale${durLabel ? ` de ${durLabel}` : ''}`}
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={load}
+      disabled={loading}
+      className={cn(
+        'flex items-center gap-2 min-h-11 text-sm font-medium disabled:opacity-60',
+        mine ? 'text-primary-foreground' : 'text-foreground'
+      )}
+    >
+      {loading ? (
+        <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
+      ) : (
+        <span
+          className={cn(
+            'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
+            mine ? 'bg-primary-foreground/15' : 'bg-primary/10'
+          )}
+          aria-hidden="true"
+        >
+          <Play className={cn('w-4 h-4', mine ? '' : 'text-primary')} />
+        </span>
+      )}
+      <span>
+        {failed ? 'Lecture impossible — réessayez' : `Écouter la note vocale${durLabel ? ` (${durLabel})` : ''}`}
+      </span>
+    </button>
+  )
 }
 
 function LessonContextCard({ message }) {
@@ -69,8 +144,10 @@ function MessageBubble({
 }) {
   const sender = message.profiles
   const label = roleLabel(sender?.role)
+  const hasAudio = !!message.audio_path || (message.pending && !!message.audio_duration_sec)
   const canDelete = mine && !message.pending && onRequestDelete && !isEditing
-  const canEdit = mine && !message.pending && onRequestEdit && !isEditing && isWithinEditWindow(message)
+  // Une note vocale ne se modifie pas : elle se supprime.
+  const canEdit = mine && !message.pending && !hasAudio && onRequestEdit && !isEditing && isWithinEditWindow(message)
   return (
     <div className={cn('flex items-end gap-0.5 group', mine ? 'justify-end' : 'justify-start')}>
       {canEdit && (
@@ -143,6 +220,7 @@ function MessageBubble({
               message.pending && 'opacity-60'
             )}
           >
+            {hasAudio && <VoiceNote message={message} mine={mine} />}
             {message.body}
           </div>
         )}
@@ -155,8 +233,20 @@ function MessageBubble({
   )
 }
 
-function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClearLessonContext, placeholder }) {
+function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClearLessonContext, placeholder, allowVoice = true }) {
   const [text, setText] = useState('')
+  const recorder = useVoiceRecorder({ maxSec: 120 })
+
+  // URL locale de pré-écoute de l'enregistrement (révoquée à chaque changement).
+  const previewUrl = useMemo(
+    () => (recorder.blob ? URL.createObjectURL(recorder.blob) : null),
+    [recorder.blob]
+  )
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
 
   function submit() {
     const body = text.trim()
@@ -169,6 +259,24 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
       setText(body)
     })
   }
+
+  function sendVoice() {
+    if (!recorder.blob || sending || disabled) return
+    const ctx = lessonContext
+    onClearLessonContext?.()
+    onSend({
+      body: null,
+      lessonId: ctx?.id ?? null,
+      lessonTitle: ctx?.title ?? null,
+      audio: { blob: recorder.blob, durationSec: recorder.seconds, mimeType: recorder.blob.type },
+    })
+      .then(() => recorder.reset())
+      .catch(() => {
+        /* toast géré par le hook — la pré-écoute reste disponible pour réessayer */
+      })
+  }
+
+  const showVoice = allowVoice && recorder.supported
 
   return (
     <div className="border-t border-border p-3 shrink-0 bg-card">
@@ -186,37 +294,105 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
           </button>
         </div>
       )}
-      <div className="flex items-end gap-2">
-        <textarea
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value)
-            sendTyping?.()
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              submit()
-            }
-          }}
-          rows={Math.min(4, Math.max(1, text.split('\n').length))}
-          maxLength={2000}
-          disabled={disabled}
-          placeholder={placeholder ?? 'Écrivez votre message…'}
-          aria-label="Votre message"
-          className="flex-1 min-h-11 max-h-32 bg-muted border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-primary/50 focus:bg-card transition-colors disabled:opacity-50"
-        />
-        <Button
-          size="icon"
-          onClick={submit}
-          disabled={!text.trim() || disabled}
-          loading={sending}
-          aria-label="Envoyer le message"
-          className="w-11 h-11 shrink-0"
-        >
-          {!sending && <Send className="w-4 h-4" aria-hidden="true" />}
-        </Button>
-      </div>
+      {/* Enregistrement en cours */}
+      {recorder.state === 'recording' && (
+        <div className="flex items-center gap-3 bg-muted border border-border rounded-xl px-3.5 py-2 min-h-11">
+          <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse motion-reduce:animate-none shrink-0" aria-hidden="true" />
+          <p className="flex-1 text-sm text-foreground" aria-live="polite">
+            Enregistrement… <span className="font-mono tabular-nums font-semibold">{fmtDuration(recorder.seconds)}</span>
+            <span className="text-xs text-muted-foreground"> / 2:00</span>
+          </p>
+          <button
+            type="button"
+            onClick={recorder.cancel}
+            aria-label="Annuler l'enregistrement"
+            className="inline-flex items-center justify-center w-11 h-11 -my-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <Button size="icon" onClick={recorder.stop} aria-label="Terminer l'enregistrement" className="w-11 h-11 shrink-0">
+            <Square className="w-3.5 h-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+
+      {/* Pré-écoute avant envoi */}
+      {recorder.state === 'preview' && (
+        <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2">
+          <audio controls src={previewUrl} className="flex-1 min-w-0 h-10" aria-label="Pré-écoute de votre note vocale" />
+          <button
+            type="button"
+            onClick={recorder.cancel}
+            aria-label="Supprimer cet enregistrement"
+            className="inline-flex items-center justify-center w-11 h-11 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+          >
+            <Trash2 className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <Button
+            size="icon"
+            onClick={sendVoice}
+            loading={sending}
+            aria-label="Envoyer la note vocale"
+            className="w-11 h-11 shrink-0"
+          >
+            {!sending && <Send className="w-4 h-4" aria-hidden="true" />}
+          </Button>
+        </div>
+      )}
+
+      {/* Saisie normale */}
+      {recorder.state === 'idle' && (
+        <div className="flex items-end gap-2">
+          <textarea
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value)
+              sendTyping?.()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                submit()
+              }
+            }}
+            rows={Math.min(4, Math.max(1, text.split('\n').length))}
+            maxLength={2000}
+            disabled={disabled}
+            placeholder={placeholder ?? 'Écrivez votre message…'}
+            aria-label="Votre message"
+            className="flex-1 min-h-11 max-h-32 bg-muted border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-primary/50 focus:bg-card transition-colors disabled:opacity-50"
+          />
+          {showVoice && !text.trim() && (
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={recorder.start}
+              disabled={disabled}
+              aria-label="Enregistrer une note vocale"
+              title="Note vocale"
+              className="w-11 h-11 shrink-0"
+            >
+              <Mic className="w-4 h-4 text-primary" aria-hidden="true" />
+            </Button>
+          )}
+          <Button
+            size="icon"
+            onClick={submit}
+            disabled={!text.trim() || disabled}
+            loading={sending}
+            aria-label="Envoyer le message"
+            className="w-11 h-11 shrink-0"
+          >
+            {!sending && <Send className="w-4 h-4" aria-hidden="true" />}
+          </Button>
+        </div>
+      )}
+
+      {recorder.error && (
+        <p role="alert" className="text-xs text-destructive mt-2">
+          {recorder.error}
+        </p>
+      )}
     </div>
   )
 }
@@ -239,6 +415,7 @@ export default function ChatThread({
   showSenderInfo = false,
   onDelete,
   onEdit,
+  allowVoice = true,
   emptyTitle = 'Aucun message pour l’instant',
   emptyDescription = 'Écrivez votre premier message ci-dessous.',
   composerPlaceholder,
@@ -286,12 +463,12 @@ export default function ChatThread({
 
   async function requestDelete(message) {
     const ok = await confirm({
-      title: 'Supprimer ce message ?',
+      title: message.audio_path ? 'Supprimer cette note vocale ?' : 'Supprimer ce message ?',
       description: 'Il sera supprimé pour tout le monde. Cette action est irréversible.',
       confirmLabel: 'Supprimer',
       danger: true,
     })
-    if (ok) onDelete?.(message.id)
+    if (ok) onDelete?.(message)
   }
 
   function onScroll() {
@@ -453,6 +630,7 @@ export default function ChatThread({
         lessonContext={lessonContext}
         onClearLessonContext={onClearLessonContext}
         placeholder={composerPlaceholder}
+        allowVoice={allowVoice}
       />
     </div>
   )

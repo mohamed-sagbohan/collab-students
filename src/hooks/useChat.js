@@ -26,9 +26,19 @@ export const EDIT_WINDOW_MS = 2 * 60 * 1000
 
 export const MESSAGE_SELECT = `
   id, conversation_id, sender_id, body, lesson_id, created_at, edited_at,
+  audio_path, audio_duration_sec,
   profiles:sender_id (name, role),
   lessons:lesson_id (title, course_id)
 `
+
+const AUDIO_BUCKET = 'chat-audio'
+const AUDIO_EXT = { 'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg' }
+
+/** URL signée temporaire (1 h) pour lire une note vocale du bucket privé. */
+export async function getChatAudioUrl(path) {
+  const { data } = await supabase.storage.from(AUDIO_BUCKET).createSignedUrl(path, 3600)
+  return data?.signedUrl ?? null
+}
 
 /** Le message est-il encore modifiable (moins de 2 minutes) ? */
 export function isWithinEditWindow(message) {
@@ -177,24 +187,48 @@ export function useSendMessage(conversationId) {
   const toast = useToast()
 
   return useMutation({
-    mutationFn: async ({ body, lessonId = null }) => {
+    mutationFn: async ({ body = null, lessonId = null, audio = null }) => {
+      // Note vocale : upload dans le bucket privé avant l'insertion du message.
+      let audioPath = null
+      if (audio?.blob) {
+        const contentType = (audio.mimeType || audio.blob.type || 'audio/webm').split(';')[0]
+        audioPath = `${conversationId}/${crypto.randomUUID()}.${AUDIO_EXT[contentType] ?? 'webm'}`
+        const { error: uploadError } = await supabase.storage
+          .from(AUDIO_BUCKET)
+          .upload(audioPath, audio.blob, { contentType })
+        if (uploadError) throw uploadError
+      }
+
       const { data, error } = await supabase
         .from('chat_messages')
-        .insert({ conversation_id: conversationId, sender_id: user.id, body, lesson_id: lessonId })
+        .insert({
+          conversation_id: conversationId,
+          sender_id: user.id,
+          body: body?.trim() || null,
+          lesson_id: lessonId,
+          audio_path: audioPath,
+          audio_duration_sec: audio ? Math.max(1, Math.round(audio.durationSec ?? 1)) : null,
+        })
         .select(MESSAGE_SELECT)
         .single()
-      if (error) throw error
+      if (error) {
+        // L'insertion a échoué après l'upload : on nettoie le fichier orphelin.
+        if (audioPath) void supabase.storage.from(AUDIO_BUCKET).remove([audioPath])
+        throw error
+      }
       return data
     },
-    onMutate: async ({ body, lessonId = null, lessonTitle = null }) => {
+    onMutate: async ({ body = null, lessonId = null, lessonTitle = null, audio = null }) => {
       await queryClient.cancelQueries({ queryKey: ['chat-messages', conversationId] })
       const tempId = `temp-${crypto.randomUUID()}`
       appendToCache(queryClient, conversationId, {
         id: tempId,
         conversation_id: conversationId,
         sender_id: user.id,
-        body,
+        body: body?.trim() || null,
         lesson_id: lessonId,
+        audio_path: null,
+        audio_duration_sec: audio ? Math.max(1, Math.round(audio.durationSec ?? 1)) : null,
         created_at: new Date().toISOString(),
         pending: true,
         profiles: { name: profile?.name, role: profile?.role },
@@ -246,13 +280,16 @@ export function useDeleteMessage(conversationId) {
   const toast = useToast()
 
   return useMutation({
-    mutationFn: async (messageId) => {
+    mutationFn: async ({ messageId }) => {
       const { error } = await supabase.from('chat_messages').delete().eq('id', messageId)
       if (error) throw error
       return messageId
     },
-    onSuccess: (messageId) => {
+    onSuccess: (messageId, { audioPath = null }) => {
       removeMessageFromCache(queryClient, conversationId, messageId)
+      // Nettoyage de la note vocale associée (meilleur effort : un échec
+      // laisse un fichier orphelin inoffensif, protégé par la RLS Storage).
+      if (audioPath) void supabase.storage.from(AUDIO_BUCKET).remove([audioPath])
       // Aperçu/tri de la liste staff (sans effet côté apprenante : la clé n'existe pas)
       queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
       toast.success('Message supprimé.')

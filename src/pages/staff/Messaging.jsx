@@ -394,7 +394,7 @@ export default function Messaging() {
                   currentUserId={user?.id}
                   onSend={(vars) => sendMessage.mutateAsync(vars)}
                   sending={sendMessage.isPending}
-                  onDelete={(id) => deleteMessage.mutate(id)}
+                  onDelete={(m) => deleteMessage.mutate({ messageId: m.id, audioPath: m.audio_path ?? null })}
                   onEdit={(id, body) => editMessage.mutateAsync({ messageId: id, body })}
                   sendTyping={sendTyping}
                   peerTyping={peerTyping}
