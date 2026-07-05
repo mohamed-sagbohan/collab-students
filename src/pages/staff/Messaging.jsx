@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, Search, ArrowLeft, SquarePen } from 'lucide-react'
+import { MessageCircle, Search, ArrowLeft, SquarePen, Archive, ArchiveRestore } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button'
 import { Dialog } from '../../components/ui/Dialog'
 import { useToast } from '../../components/ui/Toast'
 import ChatThread from '../../components/chat/ChatThread'
+import { StatusBadge } from '../../components/ui/StatusBadge'
 import {
   useStaffConversations,
   useChatMessages,
@@ -20,6 +21,7 @@ import {
   useChatPresence,
   useStudentsDirectory,
   useStartConversation,
+  useSetConversationArchived,
 } from '../../hooks/useChat'
 
 function timeAgo(dateStr) {
@@ -40,6 +42,7 @@ export default function Messaging() {
   const toast = useToast()
   const [activeId, setActiveId] = useState(null)
   const [search, setSearch] = useState('')
+  const [tab, setTab] = useState('active') // 'active' | 'archived'
   // Nouveau message initié par le staff
   const [newMsgOpen, setNewMsgOpen] = useState(false)
   const [studentSearch, setStudentSearch] = useState('')
@@ -54,12 +57,19 @@ export default function Messaging() {
 
   const { data: students = [], isLoading: loadingStudents } = useStudentsDirectory(newMsgOpen)
   const startConversation = useStartConversation()
+  const setArchived = useSetConversationArchived()
+
+  const activeCount = conversations.filter((c) => !c.archived).length
+  const archivedCount = conversations.length - activeCount
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return conversations
-    return conversations.filter((c) => (c.student_name ?? '').toLowerCase().includes(q))
-  }, [conversations, search])
+    return conversations.filter(
+      (c) =>
+        (tab === 'archived' ? c.archived : !c.archived) &&
+        (!q || (c.student_name ?? '').toLowerCase().includes(q))
+    )
+  }, [conversations, search, tab])
 
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase()
@@ -74,9 +84,21 @@ export default function Messaging() {
   // Le fil fraîchement créé apparaît en tête de liste tant que la liste
   // serveur ne le connaît pas (elle masque les conversations sans message).
   const listItems = useMemo(() => {
-    if (draft && !conversations.some((c) => c.id === draft.id)) return [draft, ...filtered]
+    if (tab === 'active' && draft && !conversations.some((c) => c.id === draft.id)) {
+      return [draft, ...filtered]
+    }
     return filtered
-  }, [draft, conversations, filtered])
+  }, [draft, conversations, filtered, tab])
+
+  async function toggleArchive(conv) {
+    const next = !conv.archived
+    try {
+      await setArchived.mutateAsync({ conversationId: conv.id, archived: next })
+      toast.success(next ? 'Conversation archivée.' : 'Conversation réactivée.')
+    } catch {
+      /* toast d'erreur déjà géré par le hook */
+    }
+  }
 
   const { messages, isLoading: loadingMessages, isError: errorMessages, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useChatMessages(activeId)
@@ -114,9 +136,11 @@ export default function Messaging() {
         last_message: null,
         last_message_at: null,
         unread_count: 0,
+        archived: false,
       })
       setNewMsgOpen(false)
       setStudentSearch('')
+      setTab('active')
       openConversation(convId)
     } catch {
       toast.error("Impossible d'ouvrir ce fil. Réessayez.")
@@ -180,7 +204,35 @@ export default function Messaging() {
               activeId ? 'hidden sm:flex' : 'flex'
             )}
           >
-            <div className="p-3 border-b border-border shrink-0">
+            <div className="p-3 border-b border-border shrink-0 space-y-2.5">
+              {/* Actives / Archivées */}
+              <div className="flex gap-1 p-1 bg-muted rounded-xl" role="tablist" aria-label="Filtrer les conversations">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'active'}
+                  onClick={() => setTab('active')}
+                  className={cn(
+                    'flex-1 min-h-9 px-3 rounded-lg text-xs font-semibold transition-colors',
+                    tab === 'active' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Actives{activeCount > 0 ? ` (${activeCount})` : ''}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === 'archived'}
+                  onClick={() => setTab('archived')}
+                  className={cn(
+                    'flex-1 min-h-9 px-3 rounded-lg text-xs font-semibold transition-colors',
+                    tab === 'archived' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Archivées{archivedCount > 0 ? ` (${archivedCount})` : ''}
+                </button>
+              </div>
+
               <label className="relative block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
                 <input
@@ -204,7 +256,11 @@ export default function Messaging() {
 
               {!isLoading && listItems.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center px-4 py-8">
-                  Aucun apprenant ne correspond à cette recherche.
+                  {search.trim()
+                    ? 'Aucun apprenant ne correspond à cette recherche.'
+                    : tab === 'archived'
+                      ? 'Aucune conversation archivée.'
+                      : 'Aucune conversation active.'}
                 </p>
               )}
 
@@ -302,6 +358,25 @@ export default function Messaging() {
                       )}
                     </p>
                   </div>
+                  {active.archived && (
+                    <StatusBadge variant="neutral" className="shrink-0 hidden sm:inline-flex">
+                      Archivée
+                    </StatusBadge>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => toggleArchive(active)}
+                    disabled={setArchived.isPending}
+                    aria-label={active.archived ? 'Désarchiver la conversation' : 'Archiver la conversation'}
+                    title={active.archived ? 'Désarchiver' : 'Archiver'}
+                    className="inline-flex items-center justify-center w-11 h-11 -my-1 -mr-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 disabled:opacity-50"
+                  >
+                    {active.archived ? (
+                      <ArchiveRestore className="w-4 h-4" aria-hidden="true" />
+                    ) : (
+                      <Archive className="w-4 h-4" aria-hidden="true" />
+                    )}
+                  </button>
                 </div>
 
                 <ChatThread

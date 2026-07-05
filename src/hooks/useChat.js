@@ -412,6 +412,29 @@ export function useStartConversation() {
   })
 }
 
+/** Archiver / désarchiver une conversation (staff). Mise à jour locale du
+    cache — pas de refetch de toute la liste pour un simple drapeau. */
+export function useSetConversationArchived() {
+  const queryClient = useQueryClient()
+  const toast = useToast()
+
+  return useMutation({
+    mutationFn: async ({ conversationId, archived }) => {
+      const { error } = await supabase.rpc('set_conversation_archived', {
+        p_conversation_id: conversationId,
+        p_archived: archived,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_data, { conversationId, archived }) => {
+      queryClient.setQueryData(['staff-conversations'], (old) =>
+        old?.map((c) => (c.id === conversationId ? { ...c, archived } : c))
+      )
+    },
+    onError: () => toast.error("Impossible de modifier l'archivage. Réessayez."),
+  })
+}
+
 /** À appeler UNE seule fois, au niveau d'AdminLayout. Aucun state React :
     alimente uniquement le cache React Query (pas de re-render en cascade). */
 export function useStaffChatRealtime() {
