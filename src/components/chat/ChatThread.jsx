@@ -1,10 +1,11 @@
-import { useRef, useState, useLayoutEffect } from 'react'
+import { useEffect, useRef, useState, useLayoutEffect } from 'react'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2 } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
 import { useConfirm } from '../ui/ConfirmDialog'
+import { isWithinEditWindow } from '../../hooks/useChat'
 
 /**
  * Fil de discussion partagé entre le widget apprenante et la page
@@ -53,12 +54,36 @@ function LessonContextCard({ message }) {
   return <span className="block mb-1 px-3 py-2 rounded-xl border border-primary/30 bg-primary/5 text-xs text-primary">{inner}</span>
 }
 
-function MessageBubble({ message, mine, showSenderInfo, onRequestDelete }) {
+function MessageBubble({
+  message,
+  mine,
+  showSenderInfo,
+  onRequestDelete,
+  onRequestEdit,
+  isEditing,
+  editText,
+  onEditTextChange,
+  onSaveEdit,
+  onCancelEdit,
+  savingEdit,
+}) {
   const sender = message.profiles
   const label = roleLabel(sender?.role)
-  const canDelete = mine && !message.pending && onRequestDelete
+  const canDelete = mine && !message.pending && onRequestDelete && !isEditing
+  const canEdit = mine && !message.pending && onRequestEdit && !isEditing && isWithinEditWindow(message)
   return (
     <div className={cn('flex items-end gap-0.5 group', mine ? 'justify-end' : 'justify-start')}>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={() => onRequestEdit(message)}
+          aria-label="Modifier ce message (possible 2 minutes après l'envoi)"
+          title="Modifier"
+          className="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-all opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
+      )}
       {canDelete && (
         <button
           type="button"
@@ -78,19 +103,52 @@ function MessageBubble({ message, mine, showSenderInfo, onRequestDelete }) {
           </p>
         )}
         {message.lesson_id && message.lessons && <LessonContextCard message={message} />}
-        <div
-          className={cn(
-            'px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words',
-            mine
-              ? 'bg-primary text-primary-foreground rounded-br-md'
-              : 'bg-muted text-foreground rounded-bl-md',
-            message.pending && 'opacity-60'
-          )}
-        >
-          {message.body}
-        </div>
+        {isEditing ? (
+          <div className="w-72 max-w-full rounded-2xl border border-primary/40 bg-card p-2">
+            <textarea
+              value={editText}
+              onChange={(e) => onEditTextChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  onSaveEdit()
+                }
+                if (e.key === 'Escape') {
+                  e.stopPropagation()
+                  onCancelEdit()
+                }
+              }}
+              rows={Math.min(4, Math.max(1, editText.split('\n').length))}
+              maxLength={2000}
+              autoFocus
+              aria-label="Modifier le message"
+              className="w-full bg-muted border border-border rounded-lg px-2.5 py-2 text-sm text-foreground resize-none focus:outline-none focus:border-primary/50 focus:bg-card transition-colors"
+            />
+            <div className="flex justify-end gap-1 mt-1.5">
+              <Button size="sm" variant="ghost" onClick={onCancelEdit}>
+                Annuler
+              </Button>
+              <Button size="sm" onClick={onSaveEdit} loading={savingEdit} disabled={!editText.trim()}>
+                Enregistrer
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              'px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words',
+              mine
+                ? 'bg-primary text-primary-foreground rounded-br-md'
+                : 'bg-muted text-foreground rounded-bl-md',
+              message.pending && 'opacity-60'
+            )}
+          >
+            {message.body}
+          </div>
+        )}
         <p className={cn('text-[10px] text-muted-foreground/70 mt-0.5', mine ? 'text-right mr-1' : 'ml-1')}>
           {message.pending ? 'Envoi…' : timeFmt.format(new Date(message.created_at))}
+          {message.edited_at && !message.pending && ' · modifié'}
         </p>
       </div>
     </div>
@@ -180,12 +238,39 @@ export default function ChatThread({
   onClearLessonContext,
   showSenderInfo = false,
   onDelete,
+  onEdit,
   emptyTitle = 'Aucun message pour l’instant',
   emptyDescription = 'Écrivez votre premier message ci-dessous.',
   composerPlaceholder,
 }) {
   const confirm = useConfirm()
   const containerRef = useRef(null)
+  // Édition en cours : { id, text } | null
+  const [editing, setEditing] = useState(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  // Re-rendu périodique : le bouton « Modifier » disparaît de lui-même
+  // à la fin de la fenêtre de 2 minutes.
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!onEdit) return
+    const id = setInterval(() => setTick((t) => t + 1), 30_000)
+    return () => clearInterval(id)
+  }, [onEdit])
+
+  async function saveEdit() {
+    const body = editing?.text.trim()
+    if (!body || savingEdit) return
+    setSavingEdit(true)
+    try {
+      await onEdit(editing.id, body)
+      setEditing(null)
+    } catch {
+      /* toast d'erreur géré par le hook — le texte reste dans l'éditeur */
+    } finally {
+      setSavingEdit(false)
+    }
+  }
   const nearBottomRef = useRef(true)
   const prependRef = useRef(null)
   const didInitRef = useRef(false)
@@ -315,6 +400,13 @@ export default function ChatThread({
                     mine={message.sender_id === currentUserId}
                     showSenderInfo={showSenderInfo}
                     onRequestDelete={onDelete ? requestDelete : undefined}
+                    onRequestEdit={onEdit ? (m) => setEditing({ id: m.id, text: m.body }) : undefined}
+                    isEditing={editing?.id === message.id}
+                    editText={editing?.id === message.id ? editing.text : ''}
+                    onEditTextChange={(text) => setEditing((e) => (e ? { ...e, text } : e))}
+                    onSaveEdit={saveEdit}
+                    onCancelEdit={() => setEditing(null)}
+                    savingEdit={savingEdit}
                   />
                 </li>
               )

@@ -21,11 +21,19 @@ import { useToast } from '../components/ui/Toast'
 
 export const PAGE_SIZE = 30
 
+/** Fenêtre de modification d'un message après envoi (appliquée aussi côté serveur). */
+export const EDIT_WINDOW_MS = 2 * 60 * 1000
+
 export const MESSAGE_SELECT = `
-  id, conversation_id, sender_id, body, lesson_id, created_at,
+  id, conversation_id, sender_id, body, lesson_id, created_at, edited_at,
   profiles:sender_id (name, role),
   lessons:lesson_id (title, course_id)
 `
+
+/** Le message est-il encore modifiable (moins de 2 minutes) ? */
+export function isWithinEditWindow(message) {
+  return Date.now() - new Date(message.created_at).getTime() < EDIT_WINDOW_MS
+}
 
 /* ── Helpers de cache (infinite query : pages[0] = page la plus récente,
      chaque page stockée en ordre chronologique ASC) ─────────────────── */
@@ -54,6 +62,20 @@ function replaceTemp(queryClient, conversationId, tempId, realRow) {
         .map((m) => (m.id === tempId ? realRow : m)),
     }))
     return { ...old, pages }
+  })
+}
+
+/** Applique un patch (body, edited_at…) à un message du cache, embeds préservés. */
+export function updateMessageInCache(queryClient, conversationId, messageId, patch) {
+  queryClient.setQueryData(['chat-messages', conversationId], (old) => {
+    if (!old) return old
+    return {
+      ...old,
+      pages: old.pages.map((p) => ({
+        ...p,
+        messages: p.messages.map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
+      })),
+    }
   })
 }
 
@@ -190,6 +212,33 @@ export function useSendMessage(conversationId) {
   })
 }
 
+/* ── Modification d'un message (le sien, < 2 min, RLS) ─────────────── */
+
+export function useEditMessage(conversationId) {
+  const queryClient = useQueryClient()
+  const toast = useToast()
+
+  return useMutation({
+    mutationFn: async ({ messageId, body }) => {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .update({ body })
+        .eq('id', messageId)
+        .select(MESSAGE_SELECT)
+        .single()
+      // Si la fenêtre de 2 minutes est dépassée, la RLS ne matche aucune
+      // ligne : .single() renvoie une erreur — message explicite.
+      if (error) throw error
+      return data
+    },
+    onSuccess: (row) => {
+      updateMessageInCache(queryClient, conversationId, row.id, { body: row.body, edited_at: row.edited_at })
+    },
+    onError: () =>
+      toast.error('Modification impossible : le délai de 2 minutes est peut-être dépassé.'),
+  })
+}
+
 /* ── Suppression d'un message (le sien uniquement, RLS) ────────────── */
 
 export function useDeleteMessage(conversationId) {
@@ -252,6 +301,16 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
           if (!payload.old?.id) return
           removeMessageFromCache(queryClient, conversationId, payload.old.id)
           queryClient.invalidateQueries({ queryKey: ['chat-unread', conversationId] })
+        }
+      )
+      // Modifications (migration 022) : le texte corrigé apparaît en direct.
+      channel.on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const row = payload.new
+          if (!row?.id) return
+          updateMessageInCache(queryClient, conversationId, row.id, { body: row.body, edited_at: row.edited_at })
         }
       )
     }
@@ -502,6 +561,17 @@ export function useStaffChatRealtime() {
           queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
           if (oldRow?.conversation_id && queryClient.getQueryData(['chat-messages', oldRow.conversation_id])) {
             removeMessageFromCache(queryClient, oldRow.conversation_id, oldRow.id)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'chat_messages' },
+        (payload) => {
+          const row = payload.new
+          queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
+          if (row?.conversation_id && queryClient.getQueryData(['chat-messages', row.conversation_id])) {
+            updateMessageInCache(queryClient, row.conversation_id, row.id, { body: row.body, edited_at: row.edited_at })
           }
         }
       )

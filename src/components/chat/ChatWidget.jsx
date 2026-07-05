@@ -10,6 +10,7 @@ import {
   useChatMessages,
   useSendMessage,
   useDeleteMessage,
+  useEditMessage,
   useConversationChannel,
   useChatPresence,
   useMyUnread,
@@ -117,6 +118,7 @@ function ChatWidgetInner() {
   )
   const sendMessage = useSendMessage(conversationId)
   const deleteMessage = useDeleteMessage(conversationId)
+  const editMessage = useEditMessage(conversationId)
 
   // Première ouverture : créer la conversation si besoin.
   useEffect(() => {
@@ -269,6 +271,7 @@ function ChatWidgetInner() {
             onSend={(vars) => sendMessage.mutateAsync(vars)}
             sending={sendMessage.isPending}
             onDelete={(id) => deleteMessage.mutate(id)}
+            onEdit={(id, body) => editMessage.mutateAsync({ messageId: id, body })}
             disabled={!conversationId || ensuring}
             sendTyping={sendTyping}
             peerTyping={peerTyping}
