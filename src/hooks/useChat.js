@@ -382,6 +382,36 @@ export function useStaffConversations() {
   })
 }
 
+/** Annuaire des apprenantes (staff) — pour initier une conversation. */
+export function useStudentsDirectory(enabled = false) {
+  const { profile } = useAuth()
+  const isStaff = profile?.role === 'formateur' || profile?.role === 'admin'
+
+  return useQuery({
+    queryKey: ['students-directory'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_students_directory')
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: enabled && isStaff,
+    staleTime: 60_000,
+  })
+}
+
+/** Le staff ouvre (ou crée) le fil d'une apprenante donnée. */
+export function useStartConversation() {
+  return useMutation({
+    mutationFn: async (studentId) => {
+      const { data, error } = await supabase.rpc('staff_get_or_create_conversation', {
+        p_student_id: studentId,
+      })
+      if (error) throw error
+      return data // uuid de la conversation
+    },
+  })
+}
+
 /** À appeler UNE seule fois, au niveau d'AdminLayout. Aucun state React :
     alimente uniquement le cache React Query (pas de re-render en cascade). */
 export function useStaffChatRealtime() {

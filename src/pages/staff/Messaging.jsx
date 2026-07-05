@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, Search, ArrowLeft } from 'lucide-react'
+import { MessageCircle, Search, ArrowLeft, SquarePen } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
@@ -8,6 +8,9 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Skeleton } from '../../components/Skeleton'
 import { Avatar } from '../../components/ui/Avatar'
+import { Button } from '../../components/ui/Button'
+import { Dialog } from '../../components/ui/Dialog'
+import { useToast } from '../../components/ui/Toast'
 import ChatThread from '../../components/chat/ChatThread'
 import {
   useStaffConversations,
@@ -15,6 +18,8 @@ import {
   useSendMessage,
   useConversationChannel,
   useChatPresence,
+  useStudentsDirectory,
+  useStartConversation,
 } from '../../hooks/useChat'
 
 function timeAgo(dateStr) {
@@ -32,13 +37,23 @@ function timeAgo(dateStr) {
 export default function Messaging() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [activeId, setActiveId] = useState(null)
   const [search, setSearch] = useState('')
+  // Nouveau message initié par le staff
+  const [newMsgOpen, setNewMsgOpen] = useState(false)
+  const [studentSearch, setStudentSearch] = useState('')
+  // Fil fraîchement créé, pas encore dans la liste (masquée tant
+  // qu'aucun message n'existe) — sert de secours à `active`.
+  const [draft, setDraft] = useState(null)
 
   const { data: conversations = [], isLoading, isError } = useStaffConversations()
   // Le staff se signale aussi en ligne : le widget apprenante affiche
   // « Un membre de l'équipe est en ligne ».
   const online = useChatPresence({ trackSelf: true })
+
+  const { data: students = [], isLoading: loadingStudents } = useStudentsDirectory(newMsgOpen)
+  const startConversation = useStartConversation()
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -46,7 +61,22 @@ export default function Messaging() {
     return conversations.filter((c) => (c.student_name ?? '').toLowerCase().includes(q))
   }, [conversations, search])
 
-  const active = conversations.find((c) => c.id === activeId) ?? null
+  const filteredStudents = useMemo(() => {
+    const q = studentSearch.trim().toLowerCase()
+    if (!q) return students
+    return students.filter((s) => (s.name ?? '').toLowerCase().includes(q))
+  }, [students, studentSearch])
+
+  const active =
+    conversations.find((c) => c.id === activeId) ??
+    (draft && draft.id === activeId ? draft : null)
+
+  // Le fil fraîchement créé apparaît en tête de liste tant que la liste
+  // serveur ne le connaît pas (elle masque les conversations sans message).
+  const listItems = useMemo(() => {
+    if (draft && !conversations.some((c) => c.id === draft.id)) return [draft, ...filtered]
+    return filtered
+  }, [draft, conversations, filtered])
 
   const { messages, isLoading: loadingMessages, isError: errorMessages, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useChatMessages(activeId)
@@ -74,6 +104,25 @@ export default function Messaging() {
     markStaffRead(convId)
   }
 
+  async function startWith(student) {
+    try {
+      const convId = await startConversation.mutateAsync(student.id)
+      setDraft({
+        id: convId,
+        student_id: student.id,
+        student_name: student.name,
+        last_message: null,
+        last_message_at: null,
+        unread_count: 0,
+      })
+      setNewMsgOpen(false)
+      setStudentSearch('')
+      openConversation(convId)
+    } catch {
+      toast.error("Impossible d'ouvrir ce fil. Réessayez.")
+    }
+  }
+
   // Si des messages arrivent dans le fil qu'on est en train de lire,
   // on garde le compteur à zéro (la liste est ré-invalidée par chat-staff).
   useEffect(() => {
@@ -91,6 +140,12 @@ export default function Messaging() {
         eyebrowIcon={MessageCircle}
         title="Questions des apprenants"
         description="Répondez en direct — chaque apprenant a un fil de discussion unique, partagé par toute l'équipe."
+        actions={
+          <Button variant="secondary" onClick={() => setNewMsgOpen(true)}>
+            <SquarePen className="w-4 h-4 text-primary" aria-hidden="true" />
+            Nouveau message
+          </Button>
+        }
       />
 
       {isError && (
@@ -101,15 +156,21 @@ export default function Messaging() {
         />
       )}
 
-      {!isError && !isLoading && conversations.length === 0 && (
+      {!isError && !isLoading && conversations.length === 0 && !draft && (
         <EmptyState
           icon={MessageCircle}
           title="Aucune conversation pour l'instant"
-          description="Dès qu'un apprenant posera une question depuis son espace, elle apparaîtra ici en temps réel."
+          description="Dès qu'un apprenant posera une question depuis son espace, elle apparaîtra ici en temps réel. Vous pouvez aussi écrire en premier."
+          action={
+            <Button variant="secondary" onClick={() => setNewMsgOpen(true)}>
+              <SquarePen className="w-4 h-4 text-primary" aria-hidden="true" />
+              Écrire à un apprenant
+            </Button>
+          }
         />
       )}
 
-      {!isError && (isLoading || conversations.length > 0) && (
+      {!isError && (isLoading || conversations.length > 0 || draft) && (
         <div className="bg-card border border-border rounded-2xl overflow-hidden flex h-[min(44rem,calc(100dvh-13rem))] min-h-[24rem]">
 
           {/* ── Liste des conversations ── */}
@@ -141,14 +202,14 @@ export default function Messaging() {
                   </div>
                 ))}
 
-              {!isLoading && filtered.length === 0 && (
+              {!isLoading && listItems.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center px-4 py-8">
                   Aucun apprenant ne correspond à cette recherche.
                 </p>
               )}
 
               {!isLoading &&
-                filtered.map((conv) => {
+                listItems.map((conv) => {
                   const isActive = conv.id === activeId
                   const isOnline = online.has(conv.student_id)
                   const preview = conv.last_message
@@ -266,6 +327,66 @@ export default function Messaging() {
           </div>
         </div>
       )}
+
+      {/* ── Choix de l'apprenant pour un nouveau message ── */}
+      <Dialog
+        open={newMsgOpen}
+        onClose={() => {
+          setNewMsgOpen(false)
+          setStudentSearch('')
+        }}
+        title="Nouveau message"
+        description="Choisissez l'apprenant à qui écrire — son fil de discussion s'ouvrira."
+      >
+        <label className="relative block mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          <input
+            type="search"
+            value={studentSearch}
+            onChange={(e) => setStudentSearch(e.target.value)}
+            placeholder="Rechercher un apprenant…"
+            aria-label="Rechercher un apprenant"
+            className="w-full h-11 pl-9 pr-3 bg-muted border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:bg-card transition-colors"
+          />
+        </label>
+
+        <div className="max-h-72 overflow-y-auto space-y-0.5 -mx-1 px-1">
+          {loadingStudents &&
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 mb-1" />)}
+
+          {!loadingStudents && filteredStudents.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-6">
+              Aucun apprenant trouvé.
+            </p>
+          )}
+
+          {!loadingStudents &&
+            filteredStudents.map((student) => (
+              <button
+                key={student.id}
+                type="button"
+                onClick={() => startWith(student)}
+                disabled={startConversation.isPending}
+                className="w-full flex items-center gap-3 px-3 py-2 min-h-12 rounded-xl hover:bg-muted text-left transition-colors disabled:opacity-50"
+              >
+                <span className="relative shrink-0">
+                  <Avatar name={student.name} />
+                  {online.has(student.id) && (
+                    <span
+                      className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success border-2 border-card"
+                      title="En ligne"
+                      aria-hidden="true"
+                    />
+                  )}
+                </span>
+                <span className="flex-1 text-sm font-medium text-foreground truncate">
+                  {student.name}
+                  {online.has(student.id) && <span className="sr-only"> (en ligne)</span>}
+                </span>
+              </button>
+            ))}
+        </div>
+      </Dialog>
     </div>
   )
 }

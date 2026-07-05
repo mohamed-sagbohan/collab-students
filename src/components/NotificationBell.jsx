@@ -63,8 +63,14 @@ export default function NotificationBell() {
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
-      }, () => {
+      }, (payload) => {
         queryClient.invalidateQueries({ queryKey: ['notifications', user.id] })
+        // Premier message du staff : la conversation vient peut-être d'être
+        // créée côté serveur — le widget de chat doit la découvrir pour
+        // afficher son badge de non-lus.
+        if (payload.new?.type === 'chat_message') {
+          queryClient.invalidateQueries({ queryKey: ['my-conversation'] })
+        }
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
