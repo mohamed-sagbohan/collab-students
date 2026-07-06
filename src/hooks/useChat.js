@@ -30,6 +30,7 @@ export const MESSAGE_SELECT = `
   profiles:sender_id (name, role),
   lessons:lesson_id (title, course_id),
   chat_reactions (emoji, user_id),
+  chat_message_hides (user_id),
   reply_to:chat_messages!reply_to_id (id, body, audio_path, image_path, sender_id, profiles:sender_id (name))
 `
 
@@ -225,7 +226,14 @@ export function useChatMessages(conversationId) {
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     // Pages inversées puis aplaties → liste chronologique, dernier message en bas.
-    select: (data) => data.pages.slice().reverse().flatMap((p) => p.messages),
+    // Les messages « supprimés pour moi » (migration 028) sont écartés ici :
+    // la RLS ne fait remonter que MES masquages dans l'embed.
+    select: (data) =>
+      data.pages
+        .slice()
+        .reverse()
+        .flatMap((p) => p.messages)
+        .filter((m) => !m.chat_message_hides?.length),
     enabled: !!conversationId,
     staleTime: 30_000,
   })
@@ -360,7 +368,10 @@ export function useEditMessage(conversationId) {
   })
 }
 
-/* ── Suppression d'un message (le sien uniquement, RLS) ────────────── */
+/* ── Suppression d'un message (RPC, migration 028) ─────────────────── */
+/* Le serveur décide : dans les 2 minutes suivant l'envoi (ou admin), le
+   message est supprimé POUR TOUT LE MONDE ('deleted') ; au-delà, il n'est
+   masqué que pour l'appelant ('hidden') — l'interlocuteur le voit toujours. */
 
 export function useDeleteMessage(conversationId) {
   const queryClient = useQueryClient()
@@ -368,19 +379,24 @@ export function useDeleteMessage(conversationId) {
 
   return useMutation({
     mutationFn: async ({ messageId }) => {
-      const { error } = await supabase.from('chat_messages').delete().eq('id', messageId)
+      const { data, error } = await supabase.rpc('delete_chat_message', { p_message_id: messageId })
       if (error) throw error
-      return messageId
+      return data // 'deleted' | 'hidden'
     },
-    onSuccess: (messageId, { audioPath = null, imagePath = null }) => {
+    onSuccess: (mode, { messageId, audioPath = null, imagePath = null }) => {
       removeMessageFromCache(queryClient, conversationId, messageId)
-      // Nettoyage de la pièce jointe associée (meilleur effort : un échec
-      // laisse un fichier orphelin inoffensif, protégé par la RLS Storage).
-      if (audioPath) void supabase.storage.from(AUDIO_BUCKET).remove([audioPath])
-      if (imagePath) void supabase.storage.from(IMAGE_BUCKET).remove([imagePath])
+      if (mode === 'deleted') {
+        // Nettoyage de la pièce jointe associée (meilleur effort : un échec
+        // laisse un fichier orphelin inoffensif, protégé par la RLS Storage).
+        // JAMAIS en mode 'hidden' : l'autre participant voit encore le message.
+        if (audioPath) void supabase.storage.from(AUDIO_BUCKET).remove([audioPath])
+        if (imagePath) void supabase.storage.from(IMAGE_BUCKET).remove([imagePath])
+        toast.success('Message supprimé pour tout le monde.')
+      } else {
+        toast.success('Message supprimé pour vous.')
+      }
       // Aperçu/tri de la liste staff (sans effet côté apprenante : la clé n'existe pas)
       queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
-      toast.success('Message supprimé.')
     },
     onError: () => toast.error('Impossible de supprimer le message. Réessayez.'),
   })

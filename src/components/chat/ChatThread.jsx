@@ -875,13 +875,19 @@ export default function ChatThread({
   }
 
   async function requestDelete(message) {
+    // Même fenêtre que l'édition (2 min) : au-delà, la suppression ne vaut
+    // que pour soi — le serveur tranche de toute façon (RPC, migration 028).
+    // requestDelete n'est appelé que sur SES messages : profiles = l'appelant.
+    const forEveryone = isWithinEditWindow(message) || message.profiles?.role === 'admin'
     const ok = await confirm({
       title: message.audio_path
         ? 'Supprimer cette note vocale ?'
         : message.image_path
           ? 'Supprimer cette photo ?'
           : 'Supprimer ce message ?',
-      description: 'Il sera supprimé pour tout le monde. Cette action est irréversible.',
+      description: forEveryone
+        ? 'Il sera supprimé pour tout le monde. Cette action est irréversible.'
+        : 'Envoyé il y a plus de 2 minutes : il ne sera supprimé que pour vous. Votre interlocuteur le verra toujours.',
       confirmLabel: 'Supprimer',
       danger: true,
     })
