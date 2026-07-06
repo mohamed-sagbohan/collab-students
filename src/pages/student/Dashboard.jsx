@@ -33,30 +33,44 @@ export default function StudentDashboard() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
 
+  // Dénominateur = TOUTES les leçons visibles (cours publiés, via RLS),
+  // pas seulement celles déjà marquées : le taux reflète le vrai parcours.
   const { data: stats, isLoading, isError } = useQuery({
     queryKey: ['progress-stats', user?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('progress')
-        .select('id, completed')
-        .eq('user_id', user.id)
+      const [lessonsRes, progressRes] = await Promise.all([
+        supabase.from('lessons').select('id', { count: 'exact', head: true }),
+        supabase.from('progress').select('id, completed').eq('user_id', user.id),
+      ])
       return {
-        total: data?.length ?? 0,
-        completed: data?.filter((p) => p.completed).length ?? 0,
+        totalLessons: lessonsRes.count ?? 0,
+        completed: progressRes.data?.filter((p) => p.completed).length ?? 0,
       }
     },
     enabled: !!user,
   })
 
+  // La flamme compte toute activité : exercices ET leçons complétées.
   const { data: activityData } = useQuery({
     queryKey: ['activity-streak', user?.id],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('exercise_results')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-      return data ?? []
+      const [exRes, progRes] = await Promise.all([
+        supabase
+          .from('exercise_results')
+          .select('created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('progress')
+          .select('completed_at')
+          .eq('user_id', user.id)
+          .eq('completed', true)
+          .not('completed_at', 'is', null),
+      ])
+      return [
+        ...(exRes.data ?? []),
+        ...(progRes.data ?? []).map((p) => ({ created_at: p.completed_at })),
+      ]
     },
     enabled: !!user,
   })
@@ -77,24 +91,40 @@ export default function StudentDashboard() {
     enabled: !!user,
   })
 
-  // Dernière leçon terminée → carte « Reprendre » (lecture seule)
-  const { data: lastActivity } = useQuery({
+  // Carte « Reprendre » : pointe la PROCHAINE leçon à faire du dernier
+  // cours travaillé (pas la dernière terminée — on avance, on ne relit pas).
+  const { data: resume } = useQuery({
     queryKey: ['last-activity', user?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data: last } = await supabase
         .from('progress')
         .select('lesson_id, completed_at, lessons:lesson_id(id, title, course_id, courses:course_id(title))')
         .eq('user_id', user.id)
+        .eq('completed', true)
         .order('completed_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      return data ?? null
+      const courseId = last?.lessons?.course_id
+      if (!courseId) return null
+
+      const [lessonsRes, progRes] = await Promise.all([
+        supabase.from('lessons').select('id, title, order_index').eq('course_id', courseId).order('order_index'),
+        supabase.from('progress').select('lesson_id, completed').eq('user_id', user.id),
+      ])
+      const doneSet = new Set((progRes.data ?? []).filter((p) => p.completed).map((p) => p.lesson_id))
+      const nextLesson = (lessonsRes.data ?? []).find((l) => !doneSet.has(l.id)) ?? null
+
+      return {
+        courseId,
+        courseTitle: last.lessons.courses?.title,
+        nextLesson, // null = cours terminé
+      }
     },
     enabled: !!user,
   })
 
   const streak = calcStreak(activityData)
-  const pct = stats?.total ? Math.round((stats.completed / stats.total) * 100) : 0
+  const pct = stats?.totalLessons ? Math.round((stats.completed / stats.totalLessons) * 100) : 0
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -129,13 +159,13 @@ export default function StudentDashboard() {
           </Link>
 
           {/* Progression globale intégrée au héros */}
-          {stats?.total > 0 && (
+          {stats?.totalLessons > 0 && stats?.completed > 0 && (
             <div className="mt-6 max-w-md">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-foreground">Progression globale</p>
-                <p className="text-xs text-primary font-bold">{stats.completed}/{stats.total} leçons · {pct}%</p>
+                <p className="text-xs text-primary font-bold">{stats.completed}/{stats.totalLessons} leçons · {pct}%</p>
               </div>
-              <ProgressBar value={stats.completed} max={stats.total} size="lg" label="Progression globale du parcours" />
+              <ProgressBar value={stats.completed} max={stats.totalLessons} size="lg" label="Progression globale du parcours" />
             </div>
           )}
         </div>
@@ -149,20 +179,28 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* Reprise rapide */}
-      {lastActivity?.lessons && (
+      {/* Reprise rapide : directement la prochaine leçon à faire */}
+      {resume && (
         <Link
-          to={`/cours/${lastActivity.lessons.course_id}`}
+          to={
+            resume.nextLesson
+              ? `/cours/${resume.courseId}/lecons/${resume.nextLesson.id}`
+              : '/cours'
+          }
           className="flex items-center gap-4 bg-card border border-border rounded-2xl p-4 sm:p-5 mb-5 sm:mb-6 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8 transition-all duration-200 motion-reduce:transition-none group"
         >
           <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
             <PlayCircle className="w-5 h-5 text-primary" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-muted-foreground mb-0.5">Continuer là où vous en étiez</p>
-            <p className="font-bold text-foreground text-sm truncate">{lastActivity.lessons.courses?.title}</p>
+            <p className="text-xs text-muted-foreground mb-0.5">
+              {resume.nextLesson ? 'Continuer là où vous en étiez' : 'Cours terminé, bravo !'}
+            </p>
+            <p className="font-bold text-foreground text-sm truncate">{resume.courseTitle}</p>
             <p className="text-xs text-muted-foreground truncate mt-0.5">
-              Dernière leçon terminée : {lastActivity.lessons.title}
+              {resume.nextLesson
+                ? `Prochaine leçon : ${resume.nextLesson.title}`
+                : 'Choisissez votre prochain cours dans le catalogue.'}
             </p>
           </div>
           <ArrowRight className="w-4 h-4 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-all shrink-0" aria-hidden="true" />
@@ -175,7 +213,7 @@ export default function StudentDashboard() {
           Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 sm:h-24" />)
         ) : (
           <>
-            <StatCard icon={BookOpen} label="Leçons commencées" value={stats?.total ?? 0} />
+            <StatCard icon={BookOpen} label="Leçons au programme" value={stats?.totalLessons ?? 0} />
             <StatCard
               icon={CheckCircle}
               label="Leçons complétées"
@@ -187,7 +225,7 @@ export default function StudentDashboard() {
             />
             <StatCard
               icon={TrendingUp}
-              label="Taux de complétion"
+              label="Progression"
               value={`${pct}%`}
               color="text-warning"
               bg="bg-warning/10"
@@ -219,7 +257,7 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {stats?.total === 0 && !isLoading && (
+      {stats?.completed === 0 && !isLoading && (
         <div className="bg-card rounded-2xl border border-border p-8 sm:p-12 text-center mb-6 sm:mb-8">
           <div className="w-16 h-16 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <BookOpen className="w-7 h-7 text-primary" />

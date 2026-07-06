@@ -105,6 +105,10 @@ export default function LessonReader() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['progress'] })
       queryClient.invalidateQueries({ queryKey: ['progress-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['course-progress'] })
+      queryClient.invalidateQueries({ queryKey: ['my-course-progress'] })
+      queryClient.invalidateQueries({ queryKey: ['last-activity'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-streak'] })
     },
     onError: () => toast.error("Impossible d'enregistrer votre progression. Vérifiez votre connexion et réessayez."),
   })
