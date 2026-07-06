@@ -25,6 +25,7 @@ import {
   useDeleteMessage,
   useEditMessage,
   useConversationReads,
+  useToggleReaction,
 } from '../../hooks/useChat'
 
 function timeAgo(dateStr) {
@@ -108,6 +109,7 @@ export default function Messaging() {
   const sendMessage = useSendMessage(activeId)
   const deleteMessage = useDeleteMessage(activeId)
   const editMessage = useEditMessage(activeId)
+  const toggleReaction = useToggleReaction(activeId)
   // Canal de la conversation ouverte : typing uniquement (les INSERT arrivent
   // déjà par le canal global chat-staff monté dans AdminLayout).
   const { sendTyping, peerTyping } = useConversationChannel({ conversationId: activeId, withPostgres: false })
@@ -404,6 +406,7 @@ export default function Messaging() {
                   sending={sendMessage.isPending}
                   onDelete={(m) => deleteMessage.mutate({ messageId: m.id, audioPath: m.audio_path ?? null })}
                   onEdit={(id, body) => editMessage.mutateAsync({ messageId: id, body })}
+                  onToggleReaction={(m, emoji, active) => toggleReaction.mutate({ messageId: m.id, emoji, active })}
                   sendTyping={sendTyping}
                   peerTyping={peerTyping}
                   peerLastReadAt={peerLastReadAt}

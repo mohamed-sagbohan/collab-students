@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play, Check } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play, Check, SmilePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
 import { useConfirm } from '../ui/ConfirmDialog'
-import { isWithinEditWindow, getChatAudioUrl } from '../../hooks/useChat'
+import { isWithinEditWindow, getChatAudioUrl, REACTION_EMOJIS } from '../../hooks/useChat'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 
 /**
@@ -34,6 +34,19 @@ function roleLabel(role) {
   if (role === 'admin') return 'Équipe LearnIT'
   return null
 }
+
+const REACTION_LABELS = {
+  '👍': 'pouce levé',
+  '❤️': 'cœur',
+  '😂': 'rire',
+  '😮': 'surprise',
+  '😢': 'tristesse',
+  '🙏': 'merci',
+}
+
+/** Classe commune des petits boutons d'action au survol d'une bulle. */
+const ACTION_BTN =
+  'inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-lg text-muted-foreground/60 transition-all opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100'
 
 function fmtDuration(sec) {
   if (!sec) return ''
@@ -133,9 +146,11 @@ function MessageBubble({
   message,
   mine,
   seen,
+  currentUserId,
   showSenderInfo,
   onRequestDelete,
   onRequestEdit,
+  onToggleReaction,
   isEditing,
   editText,
   onEditTextChange,
@@ -145,19 +160,48 @@ function MessageBubble({
 }) {
   const sender = message.profiles
   const label = roleLabel(sender?.role)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const hasAudio = !!message.audio_path || (message.pending && !!message.audio_duration_sec)
   const canDelete = mine && !message.pending && onRequestDelete && !isEditing
   // Une note vocale ne se modifie pas : elle se supprime.
   const canEdit = mine && !message.pending && !hasAudio && onRequestEdit && !isEditing && isWithinEditWindow(message)
+  const canReact = !message.pending && !!onToggleReaction && !isEditing
+
+  // Réactions agrégées par emoji (ordre stable de la palette).
+  const reactions = useMemo(() => {
+    const byEmoji = new Map()
+    for (const r of message.chat_reactions ?? []) {
+      const entry = byEmoji.get(r.emoji) ?? { emoji: r.emoji, count: 0, mine: false }
+      entry.count += 1
+      if (r.user_id === currentUserId) entry.mine = true
+      byEmoji.set(r.emoji, entry)
+    }
+    return REACTION_EMOJIS.filter((e) => byEmoji.has(e)).map((e) => byEmoji.get(e))
+  }, [message.chat_reactions, currentUserId])
+
+  const reactButton = canReact && (
+    <button
+      type="button"
+      onClick={() => setPickerOpen((o) => !o)}
+      aria-label="Réagir à ce message"
+      aria-expanded={pickerOpen}
+      title="Réagir"
+      className={cn(ACTION_BTN, 'hover:text-primary hover:bg-primary/10')}
+    >
+      <SmilePlus className="w-3.5 h-3.5" aria-hidden="true" />
+    </button>
+  )
+
   return (
     <div className={cn('flex items-end gap-0.5 group', mine ? 'justify-end' : 'justify-start')}>
+      {mine && reactButton}
       {canEdit && (
         <button
           type="button"
           onClick={() => onRequestEdit(message)}
           aria-label="Modifier ce message (possible 2 minutes après l'envoi)"
           title="Modifier"
-          className="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-lg text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-all opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+          className={cn(ACTION_BTN, 'hover:text-primary hover:bg-primary/10')}
         >
           <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
@@ -168,12 +212,12 @@ function MessageBubble({
           onClick={() => onRequestDelete(message)}
           aria-label="Supprimer ce message"
           title="Supprimer"
-          className="inline-flex items-center justify-center w-11 h-11 shrink-0 rounded-lg text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-all opacity-60 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+          className={cn(ACTION_BTN, 'hover:text-destructive hover:bg-destructive/10')}
         >
           <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
       )}
-      <div className="max-w-[82%] min-w-0">
+      <div className="relative max-w-[82%] min-w-0">
         {!mine && showSenderInfo && sender?.name && (
           <p className="text-[11px] text-muted-foreground mb-0.5 ml-1">
             {sender.name}
@@ -225,6 +269,31 @@ function MessageBubble({
             {message.body}
           </div>
         )}
+        {/* Réactions agrégées */}
+        {reactions.length > 0 && (
+          <div className={cn('flex flex-wrap gap-1 mt-1', mine ? 'justify-end' : 'justify-start')}>
+            {reactions.map((r) => (
+              <button
+                key={r.emoji}
+                type="button"
+                disabled={!canReact}
+                onClick={() => onToggleReaction?.(message, r.emoji, r.mine)}
+                aria-pressed={r.mine}
+                aria-label={`${REACTION_LABELS[r.emoji] ?? r.emoji} — ${r.count} réaction${r.count > 1 ? 's' : ''}${r.mine ? ', dont la vôtre' : ''}`}
+                className={cn(
+                  'inline-flex items-center gap-1 h-6 px-2 rounded-full border text-xs transition-colors',
+                  r.mine
+                    ? 'border-primary/50 bg-primary/10 text-primary font-semibold'
+                    : 'border-border bg-muted text-muted-foreground hover:border-primary/40'
+                )}
+              >
+                <span aria-hidden="true">{r.emoji}</span>
+                {r.count}
+              </button>
+            ))}
+          </div>
+        )}
+
         <p className={cn('text-[10px] text-muted-foreground/70 mt-0.5', mine ? 'text-right mr-1' : 'ml-1')}>
           {message.pending ? 'Envoi…' : timeFmt.format(new Date(message.created_at))}
           {message.edited_at && !message.pending && ' · modifié'}
@@ -235,7 +304,51 @@ function MessageBubble({
             </span>
           )}
         </p>
+
+        {/* Palette de réactions */}
+        {pickerOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} aria-hidden="true" />
+            <div
+              role="group"
+              aria-label="Choisir une réaction"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation()
+                  setPickerOpen(false)
+                }
+              }}
+              className={cn(
+                'absolute z-20 bottom-full mb-1 flex items-center gap-0.5 bg-card border border-border rounded-full shadow-lg px-1.5 py-1 animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none',
+                mine ? 'right-0' : 'left-0'
+              )}
+            >
+              {REACTION_EMOJIS.map((emoji) => {
+                const active = reactions.some((r) => r.emoji === emoji && r.mine)
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => {
+                      onToggleReaction?.(message, emoji, active)
+                      setPickerOpen(false)
+                    }}
+                    aria-label={`${active ? 'Retirer la réaction' : 'Réagir'} ${REACTION_LABELS[emoji]}`}
+                    aria-pressed={active}
+                    className={cn(
+                      'w-9 h-9 rounded-full text-lg flex items-center justify-center hover:bg-muted transition-colors',
+                      active && 'bg-primary/10'
+                    )}
+                  >
+                    <span aria-hidden="true">{emoji}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
+      {!mine && reactButton}
     </div>
   )
 }
@@ -423,6 +536,7 @@ export default function ChatThread({
   showSenderInfo = false,
   onDelete,
   onEdit,
+  onToggleReaction,
   allowVoice = true,
   emptyTitle = 'Aucun message pour l’instant',
   emptyDescription = 'Écrivez votre premier message ci-dessous.',
@@ -598,7 +712,9 @@ export default function ChatThread({
                     message={message}
                     mine={message.sender_id === currentUserId}
                     seen={message.id === lastSeenOwnId}
+                    currentUserId={currentUserId}
                     showSenderInfo={showSenderInfo}
+                    onToggleReaction={onToggleReaction}
                     onRequestDelete={onDelete ? requestDelete : undefined}
                     onRequestEdit={onEdit ? (m) => setEditing({ id: m.id, text: m.body }) : undefined}
                     isEditing={editing?.id === message.id}

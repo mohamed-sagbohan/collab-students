@@ -15,6 +15,7 @@ import {
   useChatPresence,
   useMyUnread,
   useConversationReads,
+  useToggleReaction,
   fetchFullMessage,
   appendToCache,
 } from '../../hooks/useChat'
@@ -120,6 +121,7 @@ function ChatWidgetInner() {
   const sendMessage = useSendMessage(conversationId)
   const deleteMessage = useDeleteMessage(conversationId)
   const editMessage = useEditMessage(conversationId)
+  const toggleReaction = useToggleReaction(conversationId)
 
   // « Vu » : mon message est lu dès qu'un membre du staff (n'importe
   // lequel, le fil est partagé) a un curseur postérieur à son envoi.
@@ -284,6 +286,7 @@ function ChatWidgetInner() {
             sending={sendMessage.isPending}
             onDelete={(m) => deleteMessage.mutate({ messageId: m.id, audioPath: m.audio_path ?? null })}
             onEdit={(id, body) => editMessage.mutateAsync({ messageId: id, body })}
+            onToggleReaction={(m, emoji, active) => toggleReaction.mutate({ messageId: m.id, emoji, active })}
             disabled={!conversationId || ensuring}
             sendTyping={sendTyping}
             peerTyping={peerTyping}

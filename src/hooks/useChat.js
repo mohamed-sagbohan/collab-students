@@ -28,8 +28,12 @@ export const MESSAGE_SELECT = `
   id, conversation_id, sender_id, body, lesson_id, created_at, edited_at,
   audio_path, audio_duration_sec,
   profiles:sender_id (name, role),
-  lessons:lesson_id (title, course_id)
+  lessons:lesson_id (title, course_id),
+  chat_reactions (emoji, user_id)
 `
+
+/** Palette de réactions — doit rester alignée avec le CHECK de la migration 025. */
+export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 
 const AUDIO_BUCKET = 'chat-audio'
 const AUDIO_EXT = { 'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg' }
@@ -96,6 +100,45 @@ export function removeMessageFromCache(queryClient, conversationId, messageId) {
     return {
       ...old,
       pages: old.pages.map((p) => ({ ...p, messages: p.messages.filter((m) => m.id !== messageId) })),
+    }
+  })
+}
+
+/** Ajoute une réaction à un message du cache (idempotent : ignorée si déjà là). */
+export function addReactionToCache(queryClient, conversationId, reaction) {
+  queryClient.setQueryData(['chat-messages', conversationId], (old) => {
+    if (!old) return old
+    return {
+      ...old,
+      pages: old.pages.map((p) => ({
+        ...p,
+        messages: p.messages.map((m) => {
+          if (m.id !== reaction.message_id) return m
+          const list = m.chat_reactions ?? []
+          if (list.some((r) => r.user_id === reaction.user_id && r.emoji === reaction.emoji)) return m
+          return { ...m, chat_reactions: [...list, { emoji: reaction.emoji, user_id: reaction.user_id }] }
+        }),
+      })),
+    }
+  })
+}
+
+/** Retire une réaction d'un message du cache (idempotent). */
+export function removeReactionFromCache(queryClient, conversationId, messageId, userId, emoji) {
+  queryClient.setQueryData(['chat-messages', conversationId], (old) => {
+    if (!old) return old
+    return {
+      ...old,
+      pages: old.pages.map((p) => ({
+        ...p,
+        messages: p.messages.map((m) => {
+          if (m.id !== messageId || !m.chat_reactions?.length) return m
+          return {
+            ...m,
+            chat_reactions: m.chat_reactions.filter((r) => !(r.user_id === userId && r.emoji === emoji)),
+          }
+        }),
+      })),
     }
   })
 }
@@ -233,6 +276,7 @@ export function useSendMessage(conversationId) {
         pending: true,
         profiles: { name: profile?.name, role: profile?.role },
         lessons: lessonId ? { title: lessonTitle, course_id: null } : null,
+        chat_reactions: [],
       })
       return { tempId }
     },
@@ -295,6 +339,50 @@ export function useDeleteMessage(conversationId) {
       toast.success('Message supprimé.')
     },
     onError: () => toast.error('Impossible de supprimer le message. Réessayez.'),
+  })
+}
+
+/* ── Réactions emoji (migration 025) ───────────────────────────────── */
+
+/** Ajoute ou retire SA réaction sur un message — optimiste, l'écho realtime
+    est dédupliqué par les helpers de cache. */
+export function useToggleReaction(conversationId) {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const toast = useToast()
+
+  return useMutation({
+    mutationFn: async ({ messageId, emoji, active }) => {
+      if (active) {
+        const { error } = await supabase
+          .from('chat_reactions')
+          .delete()
+          .match({ message_id: messageId, user_id: user.id, emoji })
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('chat_reactions')
+          .insert({ message_id: messageId, user_id: user.id, emoji })
+        if (error) throw error
+      }
+    },
+    onMutate: async ({ messageId, emoji, active }) => {
+      await queryClient.cancelQueries({ queryKey: ['chat-messages', conversationId] })
+      if (active) {
+        removeReactionFromCache(queryClient, conversationId, messageId, user.id, emoji)
+      } else {
+        addReactionToCache(queryClient, conversationId, { message_id: messageId, user_id: user.id, emoji })
+      }
+    },
+    onError: (_err, { messageId, emoji, active }) => {
+      // Annulation de l'optimiste : on ré-applique l'état précédent.
+      if (active) {
+        addReactionToCache(queryClient, conversationId, { message_id: messageId, user_id: user.id, emoji })
+      } else {
+        removeReactionFromCache(queryClient, conversationId, messageId, user.id, emoji)
+      }
+      toast.error("Impossible d'enregistrer la réaction. Réessayez.")
+    },
   })
 }
 
@@ -372,6 +460,23 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
           const row = payload.new
           if (!row?.id) return
           updateMessageInCache(queryClient, conversationId, row.id, { body: row.body, edited_at: row.edited_at })
+        }
+      )
+      // Réactions emoji (migration 025) — dédupliquées face à l'optimiste.
+      channel.on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_reactions', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const r = payload.new
+          if (r?.message_id) addReactionToCache(queryClient, conversationId, r)
+        }
+      )
+      channel.on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'chat_reactions', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const r = payload.old
+          if (r?.message_id) removeReactionFromCache(queryClient, conversationId, r.message_id, r.user_id, r.emoji)
         }
       )
     }
@@ -645,6 +750,27 @@ export function useStaffChatRealtime() {
           queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
           if (row?.conversation_id && queryClient.getQueryData(['chat-messages', row.conversation_id])) {
             updateMessageInCache(queryClient, row.conversation_id, row.id, { body: row.body, edited_at: row.edited_at })
+          }
+        }
+      )
+      // Réactions emoji : n'alimente que les fils déjà en cache.
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_reactions' },
+        (payload) => {
+          const r = payload.new
+          if (r?.conversation_id && queryClient.getQueryData(['chat-messages', r.conversation_id])) {
+            addReactionToCache(queryClient, r.conversation_id, r)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'chat_reactions' },
+        (payload) => {
+          const r = payload.old
+          if (r?.conversation_id && queryClient.getQueryData(['chat-messages', r.conversation_id])) {
+            removeReactionFromCache(queryClient, r.conversation_id, r.message_id, r.user_id, r.emoji)
           }
         }
       )
