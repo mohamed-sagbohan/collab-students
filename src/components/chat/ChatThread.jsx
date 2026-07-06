@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play, Check, SmilePlus } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play, Check, SmilePlus, ImagePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
 import { useConfirm } from '../ui/ConfirmDialog'
-import { isWithinEditWindow, getChatAudioUrl, REACTION_EMOJIS } from '../../hooks/useChat'
+import {
+  isWithinEditWindow,
+  getChatAudioUrl,
+  getChatImageUrl,
+  isAllowedChatImage,
+  REACTION_EMOJIS,
+} from '../../hooks/useChat'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
 
 /**
@@ -122,6 +129,74 @@ function VoiceNote({ message, mine }) {
   )
 }
 
+/** Image dans une bulle : aperçu local pendant l'envoi, puis URL signée. */
+function ChatImage({ message, onOpenLightbox }) {
+  const [url, setUrl] = useState(message.image_local_url ?? null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    if (!message.image_path) return
+    let cancelled = false
+    getChatImageUrl(message.image_path).then((signed) => {
+      if (cancelled) return
+      if (signed) setUrl(signed)
+      else setFailed(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [message.image_path])
+
+  if (failed) {
+    return <p className="text-xs italic opacity-70 py-1">Image indisponible — rouvrez la discussion.</p>
+  }
+  if (!url) {
+    return <div className="w-48 h-32 rounded-lg bg-foreground/10 animate-pulse motion-reduce:animate-none my-1" aria-hidden="true" />
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenLightbox?.(url)}
+      disabled={message.pending || !onOpenLightbox}
+      aria-label="Agrandir la photo"
+      className="block my-1 rounded-lg overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      <img src={url} alt="Photo partagée" loading="lazy" className="max-w-full max-h-56 rounded-lg object-contain" />
+    </button>
+  )
+}
+
+/** Photo en plein écran — rendue en portal pour couvrir toute la page. */
+function Lightbox({ url, onClose }) {
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo en grand"
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation()
+          onClose()
+        }
+      }}
+      className="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4 animate-in fade-in duration-150 motion-reduce:animate-none"
+    >
+      <img src={url} alt="Photo partagée" className="max-w-full max-h-full rounded-lg" />
+      <button
+        type="button"
+        onClick={onClose}
+        autoFocus
+        aria-label="Fermer la photo"
+        className="absolute top-4 right-4 inline-flex items-center justify-center w-11 h-11 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+      >
+        <X className="w-5 h-5" aria-hidden="true" />
+      </button>
+    </div>,
+    document.body
+  )
+}
+
 function LessonContextCard({ message }) {
   const inner = (
     <span className="flex items-center gap-1.5 font-semibold">
@@ -151,6 +226,7 @@ function MessageBubble({
   onRequestDelete,
   onRequestEdit,
   onToggleReaction,
+  onOpenLightbox,
   isEditing,
   editText,
   onEditTextChange,
@@ -162,9 +238,11 @@ function MessageBubble({
   const label = roleLabel(sender?.role)
   const [pickerOpen, setPickerOpen] = useState(false)
   const hasAudio = !!message.audio_path || (message.pending && !!message.audio_duration_sec)
+  const hasImage = !!message.image_path || !!message.image_local_url
   const canDelete = mine && !message.pending && onRequestDelete && !isEditing
-  // Une note vocale ne se modifie pas : elle se supprime.
-  const canEdit = mine && !message.pending && !hasAudio && onRequestEdit && !isEditing && isWithinEditWindow(message)
+  // Seul le texte se modifie : une note vocale ou une photo sans légende se supprime.
+  const canEdit =
+    mine && !message.pending && !hasAudio && !!message.body && onRequestEdit && !isEditing && isWithinEditWindow(message)
   const canReact = !message.pending && !!onToggleReaction && !isEditing
 
   // Réactions agrégées par emoji (ordre stable de la palette).
@@ -265,6 +343,7 @@ function MessageBubble({
               message.pending && 'opacity-60'
             )}
           >
+            {hasImage && <ChatImage message={message} onOpenLightbox={onOpenLightbox} />}
             {hasAudio && <VoiceNote message={message} mine={mine} />}
             {message.body}
           </div>
@@ -355,6 +434,10 @@ function MessageBubble({
 
 function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClearLessonContext, placeholder, allowVoice = true }) {
   const [text, setText] = useState('')
+  // Photo sélectionnée : { file, url } (url = aperçu local, révoqué à l'envoi/retrait).
+  const [image, setImage] = useState(null)
+  const [imageError, setImageError] = useState(null)
+  const fileInputRef = useRef(null)
   const recorder = useVoiceRecorder({ maxSec: 120 })
 
   // URL locale de pré-écoute de l'enregistrement (révoquée à chaque changement).
@@ -368,16 +451,52 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
     }
   }, [previewUrl])
 
+  function pickImage(e) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // resélection du même fichier possible
+    if (!file) return
+    if (!isAllowedChatImage(file)) {
+      setImageError('Photo refusée : formats JPG, PNG, WebP ou GIF, 5 Mo maximum.')
+      return
+    }
+    setImageError(null)
+    setImage((old) => {
+      if (old) URL.revokeObjectURL(old.url)
+      return { file, url: URL.createObjectURL(file) }
+    })
+  }
+
+  function removeImage() {
+    setImage((old) => {
+      if (old) URL.revokeObjectURL(old.url)
+      return null
+    })
+  }
+
   function submit() {
     const body = text.trim()
-    if (!body || sending || disabled) return
+    if ((!body && !image) || sending || disabled) return
     setText('')
+    setImageError(null)
     const ctx = lessonContext
+    const img = image
     onClearLessonContext?.()
-    onSend({ body, lessonId: ctx?.id ?? null, lessonTitle: ctx?.title ?? null }).catch(() => {
-      // Échec (toast déjà affiché par le hook) : on restitue le texte saisi.
-      setText(body)
+    onSend({
+      body: body || null,
+      lessonId: ctx?.id ?? null,
+      lessonTitle: ctx?.title ?? null,
+      image: img ? { file: img.file, previewUrl: img.url } : null,
     })
+      .then(() => {
+        if (img) {
+          URL.revokeObjectURL(img.url)
+          setImage(null)
+        }
+      })
+      .catch(() => {
+        // Échec (toast déjà affiché par le hook) : on restitue la saisie.
+        setText(body)
+      })
   }
 
   function sendVoice() {
@@ -460,9 +579,36 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
         </div>
       )}
 
+      {/* Photo sélectionnée, en attente d'envoi */}
+      {image && recorder.state === 'idle' && (
+        <div className="flex items-center gap-2.5 mb-2 px-2.5 py-2 rounded-xl bg-muted border border-border">
+          <img src={image.url} alt="Aperçu de la photo à envoyer" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+          <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+            {image.file.name}
+          </span>
+          <button
+            type="button"
+            onClick={removeImage}
+            aria-label="Retirer la photo"
+            className="inline-flex items-center justify-center w-11 h-11 -my-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       {/* Saisie normale */}
       {recorder.state === 'idle' && (
         <div className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={pickImage}
+            className="hidden"
+            aria-hidden="true"
+            tabIndex={-1}
+          />
           <textarea
             value={text}
             onChange={(e) => {
@@ -482,7 +628,20 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
             aria-label="Votre message"
             className="flex-1 min-h-11 max-h-32 bg-muted border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-primary/50 focus:bg-card transition-colors disabled:opacity-50"
           />
-          {showVoice && !text.trim() && (
+          {!image && (
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              aria-label="Joindre une photo"
+              title="Photo"
+              className="w-11 h-11 shrink-0"
+            >
+              <ImagePlus className="w-4 h-4 text-primary" aria-hidden="true" />
+            </Button>
+          )}
+          {showVoice && !text.trim() && !image && (
             <Button
               size="icon"
               variant="secondary"
@@ -498,7 +657,7 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
           <Button
             size="icon"
             onClick={submit}
-            disabled={!text.trim() || disabled}
+            disabled={(!text.trim() && !image) || disabled}
             loading={sending}
             aria-label="Envoyer le message"
             className="w-11 h-11 shrink-0"
@@ -511,6 +670,11 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
       {recorder.error && (
         <p role="alert" className="text-xs text-destructive mt-2">
           {recorder.error}
+        </p>
+      )}
+      {imageError && (
+        <p role="alert" className="text-xs text-destructive mt-2">
+          {imageError}
         </p>
       )}
     </div>
@@ -547,6 +711,8 @@ export default function ChatThread({
   // Édition en cours : { id, text } | null
   const [editing, setEditing] = useState(null)
   const [savingEdit, setSavingEdit] = useState(false)
+  // Photo affichée en grand : URL signée | null
+  const [lightboxUrl, setLightboxUrl] = useState(null)
 
   // Re-rendu périodique : le bouton « Modifier » disparaît de lui-même
   // à la fin de la fenêtre de 2 minutes.
@@ -599,7 +765,11 @@ export default function ChatThread({
 
   async function requestDelete(message) {
     const ok = await confirm({
-      title: message.audio_path ? 'Supprimer cette note vocale ?' : 'Supprimer ce message ?',
+      title: message.audio_path
+        ? 'Supprimer cette note vocale ?'
+        : message.image_path
+          ? 'Supprimer cette photo ?'
+          : 'Supprimer ce message ?',
       description: 'Il sera supprimé pour tout le monde. Cette action est irréversible.',
       confirmLabel: 'Supprimer',
       danger: true,
@@ -715,6 +885,7 @@ export default function ChatThread({
                     currentUserId={currentUserId}
                     showSenderInfo={showSenderInfo}
                     onToggleReaction={onToggleReaction}
+                    onOpenLightbox={setLightboxUrl}
                     onRequestDelete={onDelete ? requestDelete : undefined}
                     onRequestEdit={onEdit ? (m) => setEditing({ id: m.id, text: m.body }) : undefined}
                     isEditing={editing?.id === message.id}
@@ -771,6 +942,8 @@ export default function ChatThread({
         placeholder={composerPlaceholder}
         allowVoice={allowVoice}
       />
+
+      {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   )
 }

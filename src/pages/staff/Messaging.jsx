@@ -282,8 +282,15 @@ export default function Messaging() {
                 listItems.map((conv) => {
                   const isActive = conv.id === activeId
                   const isOnline = online.has(conv.student_id)
+                  const previewBody =
+                    conv.last_message?.body ??
+                    (conv.last_message?.image_path
+                      ? '📷 Photo'
+                      : conv.last_message?.audio_path
+                        ? '🎤 Note vocale'
+                        : '')
                   const preview = conv.last_message
-                    ? `${conv.last_message.sender_id === user?.id ? 'Vous : ' : ''}${conv.last_message.body}`
+                    ? `${conv.last_message.sender_id === user?.id ? 'Vous : ' : ''}${previewBody}`
                     : ''
                   return (
                     <button
@@ -404,7 +411,9 @@ export default function Messaging() {
                   currentUserId={user?.id}
                   onSend={(vars) => sendMessage.mutateAsync(vars)}
                   sending={sendMessage.isPending}
-                  onDelete={(m) => deleteMessage.mutate({ messageId: m.id, audioPath: m.audio_path ?? null })}
+                  onDelete={(m) =>
+                    deleteMessage.mutate({ messageId: m.id, audioPath: m.audio_path ?? null, imagePath: m.image_path ?? null })
+                  }
                   onEdit={(id, body) => editMessage.mutateAsync({ messageId: id, body })}
                   onToggleReaction={(m, emoji, active) => toggleReaction.mutate({ messageId: m.id, emoji, active })}
                   sendTyping={sendTyping}

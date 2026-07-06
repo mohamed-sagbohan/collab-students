@@ -26,7 +26,7 @@ export const EDIT_WINDOW_MS = 2 * 60 * 1000
 
 export const MESSAGE_SELECT = `
   id, conversation_id, sender_id, body, lesson_id, created_at, edited_at,
-  audio_path, audio_duration_sec,
+  audio_path, audio_duration_sec, image_path,
   profiles:sender_id (name, role),
   lessons:lesson_id (title, course_id),
   chat_reactions (emoji, user_id)
@@ -38,9 +38,26 @@ export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'
 const AUDIO_BUCKET = 'chat-audio'
 const AUDIO_EXT = { 'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg' }
 
+const IMAGE_BUCKET = 'chat-images'
+const IMAGE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
+
+/** Taille max d'une pièce jointe image (alignée sur le bucket, migration 026). */
+export const IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
+/** Le fichier est-il une image acceptée par le bucket chat-images ? */
+export function isAllowedChatImage(file) {
+  return !!file && !!IMAGE_EXT[file.type] && file.size <= IMAGE_MAX_BYTES
+}
+
 /** URL signée temporaire (1 h) pour lire une note vocale du bucket privé. */
 export async function getChatAudioUrl(path) {
   const { data } = await supabase.storage.from(AUDIO_BUCKET).createSignedUrl(path, 3600)
+  return data?.signedUrl ?? null
+}
+
+/** URL signée temporaire (1 h) pour afficher une image du bucket privé. */
+export async function getChatImageUrl(path) {
+  const { data } = await supabase.storage.from(IMAGE_BUCKET).createSignedUrl(path, 3600)
   return data?.signedUrl ?? null
 }
 
@@ -230,8 +247,8 @@ export function useSendMessage(conversationId) {
   const toast = useToast()
 
   return useMutation({
-    mutationFn: async ({ body = null, lessonId = null, audio = null }) => {
-      // Note vocale : upload dans le bucket privé avant l'insertion du message.
+    mutationFn: async ({ body = null, lessonId = null, audio = null, image = null }) => {
+      // Pièce jointe : upload dans le bucket privé avant l'insertion du message.
       let audioPath = null
       if (audio?.blob) {
         const contentType = (audio.mimeType || audio.blob.type || 'audio/webm').split(';')[0]
@@ -239,6 +256,14 @@ export function useSendMessage(conversationId) {
         const { error: uploadError } = await supabase.storage
           .from(AUDIO_BUCKET)
           .upload(audioPath, audio.blob, { contentType })
+        if (uploadError) throw uploadError
+      }
+      let imagePath = null
+      if (image?.file) {
+        imagePath = `${conversationId}/${crypto.randomUUID()}.${IMAGE_EXT[image.file.type] ?? 'jpg'}`
+        const { error: uploadError } = await supabase.storage
+          .from(IMAGE_BUCKET)
+          .upload(imagePath, image.file, { contentType: image.file.type })
         if (uploadError) throw uploadError
       }
 
@@ -251,17 +276,19 @@ export function useSendMessage(conversationId) {
           lesson_id: lessonId,
           audio_path: audioPath,
           audio_duration_sec: audio ? Math.max(1, Math.round(audio.durationSec ?? 1)) : null,
+          image_path: imagePath,
         })
         .select(MESSAGE_SELECT)
         .single()
       if (error) {
         // L'insertion a échoué après l'upload : on nettoie le fichier orphelin.
         if (audioPath) void supabase.storage.from(AUDIO_BUCKET).remove([audioPath])
+        if (imagePath) void supabase.storage.from(IMAGE_BUCKET).remove([imagePath])
         throw error
       }
       return data
     },
-    onMutate: async ({ body = null, lessonId = null, lessonTitle = null, audio = null }) => {
+    onMutate: async ({ body = null, lessonId = null, lessonTitle = null, audio = null, image = null }) => {
       await queryClient.cancelQueries({ queryKey: ['chat-messages', conversationId] })
       const tempId = `temp-${crypto.randomUUID()}`
       appendToCache(queryClient, conversationId, {
@@ -272,6 +299,9 @@ export function useSendMessage(conversationId) {
         lesson_id: lessonId,
         audio_path: null,
         audio_duration_sec: audio ? Math.max(1, Math.round(audio.durationSec ?? 1)) : null,
+        image_path: null,
+        // Aperçu local le temps de l'upload (URL révoquée par le composer).
+        image_local_url: image?.previewUrl ?? null,
         created_at: new Date().toISOString(),
         pending: true,
         profiles: { name: profile?.name, role: profile?.role },
@@ -329,11 +359,12 @@ export function useDeleteMessage(conversationId) {
       if (error) throw error
       return messageId
     },
-    onSuccess: (messageId, { audioPath = null }) => {
+    onSuccess: (messageId, { audioPath = null, imagePath = null }) => {
       removeMessageFromCache(queryClient, conversationId, messageId)
-      // Nettoyage de la note vocale associée (meilleur effort : un échec
+      // Nettoyage de la pièce jointe associée (meilleur effort : un échec
       // laisse un fichier orphelin inoffensif, protégé par la RLS Storage).
       if (audioPath) void supabase.storage.from(AUDIO_BUCKET).remove([audioPath])
+      if (imagePath) void supabase.storage.from(IMAGE_BUCKET).remove([imagePath])
       // Aperçu/tri de la liste staff (sans effet côté apprenante : la clé n'existe pas)
       queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
       toast.success('Message supprimé.')

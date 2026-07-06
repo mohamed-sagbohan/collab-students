@@ -284,7 +284,9 @@ function ChatWidgetInner() {
             currentUserId={user.id}
             onSend={(vars) => sendMessage.mutateAsync(vars)}
             sending={sendMessage.isPending}
-            onDelete={(m) => deleteMessage.mutate({ messageId: m.id, audioPath: m.audio_path ?? null })}
+            onDelete={(m) =>
+              deleteMessage.mutate({ messageId: m.id, audioPath: m.audio_path ?? null, imagePath: m.image_path ?? null })
+            }
             onEdit={(id, body) => editMessage.mutateAsync({ messageId: id, body })}
             onToggleReaction={(m, emoji, active) => toggleReaction.mutate({ messageId: m.id, emoji, active })}
             disabled={!conversationId || ensuring}
