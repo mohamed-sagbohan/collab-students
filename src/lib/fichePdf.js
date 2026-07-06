@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf'
-
 // Helvetica (police par défaut de jsPDF) ne supporte pas les accents, ni les symboles
 // hors WinAnsi (flèches, pictogrammes, emoji) → on les retire pour éviter un rendu cassé.
 function normalize(str) {
@@ -32,7 +30,9 @@ function layoutSection(doc, section, contentWidth) {
   return { headingLines, items, headingHeight, height: headingHeight + 4 + itemsHeight + 10 }
 }
 
-export function downloadFiche({ courseTitle, ficheContent }) {
+export async function downloadFiche({ courseTitle, ficheContent }) {
+  // jsPDF (~150 Ko gzip) n'est téléchargé qu'au premier clic.
+  const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const W = doc.internal.pageSize.getWidth()
   const H = doc.internal.pageSize.getHeight()

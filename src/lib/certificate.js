@@ -1,11 +1,11 @@
-import { jsPDF } from 'jspdf'
-
 // Helvetica (police par défaut de jsPDF) ne supporte pas les accents → on les retire
 function normalize(str) {
   return str.normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
-export function downloadCertificate({ studentName, courseTitle, completedAt }) {
+export async function downloadCertificate({ studentName, courseTitle, completedAt }) {
+  // jsPDF (~150 Ko gzip) n'est téléchargé qu'au premier clic.
+  const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
   const W = doc.internal.pageSize.getWidth()   // 297mm

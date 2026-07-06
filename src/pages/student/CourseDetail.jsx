@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
 import { Button } from '../../components/ui/Button'
+import { useToast } from '../../components/ui/Toast'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ProgressRing } from '../../components/ui/ProgressRing'
 import { downloadCertificate } from '../../lib/certificate'
@@ -18,6 +19,7 @@ function youtubeThumbnail(url) {
 export default function CourseDetail() {
   const { id } = useParams()
   const { user, profile } = useAuth()
+  const toast = useToast()
 
   const { data: course, isLoading, error } = useQuery({
     queryKey: ['course', id],
@@ -72,14 +74,14 @@ export default function CourseDetail() {
       studentName: profile?.name ?? 'Apprenant',
       courseTitle:  course?.title ?? 'Cours',
       completedAt:  lastCompletedAt ?? new Date().toISOString(),
-    })
+    }).catch(() => toast.error('Téléchargement impossible. Vérifiez votre connexion et réessayez.'))
   }
 
   function handleDownloadFiche() {
     downloadFiche({
       courseTitle: course?.title ?? 'Cours',
       ficheContent: course?.fiche_content,
-    })
+    }).catch(() => toast.error('Téléchargement impossible. Vérifiez votre connexion et réessayez.'))
   }
 
   const videos = course?.youtube_videos ?? []
