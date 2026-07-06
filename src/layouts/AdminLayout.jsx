@@ -8,7 +8,7 @@ import { SkipLink } from '../components/ui/SkipLink'
 import { NavItem } from '../components/ui/NavItem'
 import { Avatar } from '../components/ui/Avatar'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
-import { useStaffConversations, useStaffChatRealtime } from '../hooks/useChat'
+import { useStaffUnreadTotal, useStaffChatRealtime } from '../hooks/useChat'
 
 const instructorLinks = [
   { to: '/formateur',            icon: LayoutDashboard, label: 'Tableau de bord' },
@@ -47,9 +47,8 @@ function LayoutBreadcrumb({ pathname, isAdmin }) {
 
 function SidebarContent({ profile, logout, onClose, onChangePassword }) {
   const links = profile?.role === 'admin' ? adminLinks : instructorLinks
-  // Clé partagée avec la page Messagerie : un seul fetch, deux consommateurs.
-  const { data: conversations = [] } = useStaffConversations()
-  const chatUnread = conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0)
+  // Badge de non-lus : compteur seul (p_limit 0), sans charger la liste.
+  const chatUnread = useStaffUnreadTotal()
 
   return (
     <div className="flex flex-col h-full">

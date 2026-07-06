@@ -106,9 +106,10 @@ function ChatWidgetInner() {
     onInsert,
   })
 
-  // Présence : l'apprenante est « en ligne » tant que l'appli est ouverte ;
-  // on lit aussi la présence du staff pour l'en-tête du panneau.
-  const online = useChatPresence({ trackSelf: true })
+  // Présence : seul le STAFF se signale sur ce canal (migration 030) —
+  // on le lit pour l'en-tête du panneau. La présence de l'apprenante
+  // passe par le heartbeat en base (useStudentHeartbeat dans AppLayout).
+  const online = useChatPresence()
   const staffOnline = useMemo(
     () => [...online.values()].some((m) => m.role === 'staff'),
     [online]

@@ -3,9 +3,12 @@ import Navbar from '../components/Navbar'
 import BottomNav from '../components/BottomNav'
 import ChatWidget, { ChatWidgetProvider } from '../components/chat/ChatWidget'
 import { SkipLink } from '../components/ui/SkipLink'
+import { useStudentHeartbeat } from '../hooks/useChat'
 
 export default function AppLayout() {
   const location = useLocation()
+  // Pastilles « en ligne » côté staff : simple heartbeat en base (migration 030).
+  useStudentHeartbeat()
 
   return (
     <ChatWidgetProvider>

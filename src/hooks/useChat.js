@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { compressImage } from '../lib/imageCompression'
 import { useAuth } from '../contexts/AuthContext'
@@ -608,8 +608,41 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
   return { sendTyping, peerTyping, connected }
 }
 
-/* ── Présence globale (pastilles « en ligne ») ─────────────────────── */
+/* ── Présence ──────────────────────────────────────────────────────── */
 
+/** Heartbeat de présence de l'apprenante (migration 030) : un upsert
+    toutes les 2 minutes suffit aux pastilles « en ligne » du staff —
+    aucun canal realtime partagé entre toutes les connectées (coût N²). */
+export function useStudentHeartbeat() {
+  const { user, profile } = useAuth()
+
+  useEffect(() => {
+    if (!user || profile?.role !== 'apprenante') return
+    let cancelled = false
+    const beat = () => {
+      if (cancelled || document.visibilityState === 'hidden') return
+      void supabase
+        .from('user_presence')
+        .upsert({ user_id: user.id, last_seen_at: new Date().toISOString() })
+    }
+    beat()
+    const id = setInterval(beat, 120_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') beat()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [user?.id, profile?.role]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** Canal de présence realtime — réservé au STAFF depuis la migration 030
+    (peu de membres) : le widget apprenante le lit pour afficher « un
+    membre de l'équipe est en ligne ». Les apprenantes ne s'y signalent
+    plus (heartbeat en base à la place). */
 export function useChatPresence({ trackSelf = false } = {}) {
   const { user, profile } = useAuth()
   const [online, setOnline] = useState(() => new Map())
@@ -700,20 +733,49 @@ export function useMyUnread(conversationId) {
 
 /* ── Côté staff : liste des conversations + canal global ───────────── */
 
-export function useStaffConversations() {
+export const STAFF_CONVERSATIONS_PAGE_SIZE = 30
+
+/** Boîte de réception staff paginée (migration 030). Renvoie
+    { active_count, archived_count, unread_total, total, conversations }. */
+export function useStaffConversations({ archived = false, search = '', page = 0 } = {}) {
   const { profile } = useAuth()
   const isStaff = profile?.role === 'formateur' || profile?.role === 'admin'
 
   return useQuery({
-    queryKey: ['staff-conversations'],
+    queryKey: ['staff-conversations', 'list', archived, search, page],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_staff_conversations')
+      const { data, error } = await supabase.rpc('get_staff_conversations', {
+        p_archived: archived,
+        p_search: search.trim() || null,
+        p_limit: STAFF_CONVERSATIONS_PAGE_SIZE,
+        p_offset: page * STAFF_CONVERSATIONS_PAGE_SIZE,
+      })
       if (error) throw error
-      return data ?? []
+      return data
+    },
+    enabled: isStaff,
+    staleTime: 15_000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Total de non-lus (badge sidebar) — sans charger la liste (p_limit 0). */
+export function useStaffUnreadTotal() {
+  const { profile } = useAuth()
+  const isStaff = profile?.role === 'formateur' || profile?.role === 'admin'
+
+  const { data: unreadTotal = 0 } = useQuery({
+    queryKey: ['staff-conversations', 'badge'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_staff_conversations', { p_limit: 0 })
+      if (error) throw error
+      return data?.unread_total ?? 0
     },
     enabled: isStaff,
     staleTime: 15_000,
   })
+
+  return unreadTotal
 }
 
 /** Annuaire des apprenantes (staff) — pour initier une conversation. */
@@ -746,8 +808,8 @@ export function useStartConversation() {
   })
 }
 
-/** Archiver / désarchiver une conversation (staff). Mise à jour locale du
-    cache — pas de refetch de toute la liste pour un simple drapeau. */
+/** Archiver / désarchiver une conversation (staff). La liste est paginée
+    par onglet : on invalide (le fil change d'onglet, les compteurs bougent). */
 export function useSetConversationArchived() {
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -760,10 +822,8 @@ export function useSetConversationArchived() {
       })
       if (error) throw error
     },
-    onSuccess: (_data, { conversationId, archived }) => {
-      queryClient.setQueryData(['staff-conversations'], (old) =>
-        old?.map((c) => (c.id === conversationId ? { ...c, archived } : c))
-      )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
     },
     onError: () => toast.error("Impossible de modifier l'archivage. Réessayez."),
   })

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, Search, ArrowLeft, SquarePen, Archive, ArchiveRestore } from 'lucide-react'
+import { MessageCircle, Search, ArrowLeft, SquarePen, Archive, ArchiveRestore, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
@@ -15,6 +15,7 @@ import ChatThread from '../../components/chat/ChatThread'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import {
   useStaffConversations,
+  STAFF_CONVERSATIONS_PAGE_SIZE,
   useChatMessages,
   useSendMessage,
   useConversationChannel,
@@ -46,6 +47,8 @@ export default function Messaging() {
   const toast = useToast()
   const [activeId, setActiveId] = useState(null)
   const [search, setSearch] = useState('')
+  const [debounced, setDebounced] = useState('')
+  const [page, setPage] = useState(0)
   const [tab, setTab] = useState('active') // 'active' | 'archived'
   // Nouveau message initié par le staff
   const [newMsgOpen, setNewMsgOpen] = useState(false)
@@ -54,26 +57,39 @@ export default function Messaging() {
   // qu'aucun message n'existe) — sert de secours à `active`.
   const [draft, setDraft] = useState(null)
 
-  const { data: conversations = [], isLoading, isError } = useStaffConversations()
-  // Le staff se signale aussi en ligne : le widget apprenante affiche
-  // « Un membre de l'équipe est en ligne ».
-  const online = useChatPresence({ trackSelf: true })
+  // Recherche CÔTÉ SERVEUR, débouncée ; changer d'onglet ou de recherche
+  // ramène à la première page.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setDebounced(search.trim())
+      setPage(0)
+    }, 300)
+    return () => clearTimeout(id)
+  }, [search])
+
+  function selectTab(next) {
+    setTab(next)
+    setPage(0)
+  }
+
+  const { data, isLoading, isError, isFetching } = useStaffConversations({
+    archived: tab === 'archived',
+    search: debounced,
+    page,
+  })
+  const conversations = useMemo(() => data?.conversations ?? [], [data])
+  const activeCount = data?.active_count ?? 0
+  const archivedCount = data?.archived_count ?? 0
+  const pageCount = Math.max(1, Math.ceil((data?.total ?? 0) / STAFF_CONVERSATIONS_PAGE_SIZE))
+
+  // Le staff se signale en ligne (seul le staff occupe ce canal depuis la
+  // migration 030) : le widget apprenante affiche « équipe en ligne ».
+  // Les pastilles des apprenantes viennent du RPC (heartbeat en base).
+  useChatPresence({ trackSelf: true })
 
   const { data: students = [], isLoading: loadingStudents } = useStudentsDirectory(newMsgOpen)
   const startConversation = useStartConversation()
   const setArchived = useSetConversationArchived()
-
-  const activeCount = conversations.filter((c) => !c.archived).length
-  const archivedCount = conversations.length - activeCount
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return conversations.filter(
-      (c) =>
-        (tab === 'archived' ? c.archived : !c.archived) &&
-        (!q || (c.student_name ?? '').toLowerCase().includes(q))
-    )
-  }, [conversations, search, tab])
 
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase()
@@ -89,10 +105,10 @@ export default function Messaging() {
   // serveur ne le connaît pas (elle masque les conversations sans message).
   const listItems = useMemo(() => {
     if (tab === 'active' && draft && !conversations.some((c) => c.id === draft.id)) {
-      return [draft, ...filtered]
+      return [draft, ...conversations]
     }
-    return filtered
-  }, [draft, conversations, filtered, tab])
+    return conversations
+  }, [draft, conversations, tab])
 
   async function toggleArchive(conv) {
     const next = !conv.archived
@@ -128,9 +144,8 @@ export default function Messaging() {
         { conversation_id: convId, user_id: user.id, last_read_at: new Date().toISOString() },
         { onConflict: 'conversation_id,user_id' }
       )
-      queryClient.setQueryData(['staff-conversations'], (old) =>
-        old?.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c))
-      )
+      // Compteurs recalculés côté serveur (liste paginée + badge sidebar).
+      queryClient.invalidateQueries({ queryKey: ['staff-conversations'] })
     },
     [user, queryClient]
   )
@@ -151,10 +166,11 @@ export default function Messaging() {
         last_message_at: null,
         unread_count: 0,
         archived: false,
+        online: student.online ?? false,
       })
       setNewMsgOpen(false)
       setStudentSearch('')
-      setTab('active')
+      selectTab('active')
       openConversation(convId)
     } catch {
       toast.error("Impossible d'ouvrir ce fil. Réessayez.")
@@ -225,7 +241,7 @@ export default function Messaging() {
                   type="button"
                   role="tab"
                   aria-selected={tab === 'active'}
-                  onClick={() => setTab('active')}
+                  onClick={() => selectTab('active')}
                   className={cn(
                     'flex-1 min-h-9 px-3 rounded-lg text-xs font-semibold transition-colors',
                     tab === 'active' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -237,7 +253,7 @@ export default function Messaging() {
                   type="button"
                   role="tab"
                   aria-selected={tab === 'archived'}
-                  onClick={() => setTab('archived')}
+                  onClick={() => selectTab('archived')}
                   className={cn(
                     'flex-1 min-h-9 px-3 rounded-lg text-xs font-semibold transition-colors',
                     tab === 'archived' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
@@ -281,7 +297,7 @@ export default function Messaging() {
               {!isLoading &&
                 listItems.map((conv) => {
                   const isActive = conv.id === activeId
-                  const isOnline = online.has(conv.student_id)
+                  const isOnline = !!conv.online
                   const previewBody =
                     conv.last_message?.body ??
                     (conv.last_message?.image_path
@@ -336,6 +352,36 @@ export default function Messaging() {
                   )
                 })}
             </div>
+
+            {/* Pagination (au-delà de 30 conversations) */}
+            {pageCount > 1 && (
+              <nav
+                aria-label="Pagination des conversations"
+                className="flex items-center justify-between gap-2 px-3 py-2 border-t border-border shrink-0"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0 || isFetching}
+                  aria-label="Page précédente"
+                  className="inline-flex items-center justify-center w-11 h-11 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+                </button>
+                <span className="text-xs text-muted-foreground" aria-live="polite">
+                  Page {page + 1} / {pageCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={page >= pageCount - 1 || isFetching}
+                  aria-label="Page suivante"
+                  className="inline-flex items-center justify-center w-11 h-11 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </nav>
+            )}
           </div>
 
           {/* ── Fil de discussion ── */}
@@ -369,7 +415,7 @@ export default function Messaging() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-foreground truncate">{active.student_name}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      {online.has(active.student_id) ? (
+                      {active.online ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-success shrink-0" aria-hidden="true" />
                           En ligne
@@ -473,7 +519,7 @@ export default function Messaging() {
               >
                 <span className="relative shrink-0">
                   <Avatar name={student.name} />
-                  {online.has(student.id) && (
+                  {student.online && (
                     <span
                       className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success border-2 border-card"
                       title="En ligne"
@@ -483,7 +529,7 @@ export default function Messaging() {
                 </span>
                 <span className="flex-1 text-sm font-medium text-foreground truncate">
                   {student.name}
-                  {online.has(student.id) && <span className="sr-only"> (en ligne)</span>}
+                  {student.online && <span className="sr-only"> (en ligne)</span>}
                 </span>
               </button>
             ))}
