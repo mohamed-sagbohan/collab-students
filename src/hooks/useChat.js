@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { compressImage } from '../lib/imageCompression'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../components/ui/Toast'
 
@@ -269,10 +270,12 @@ export function useSendMessage(conversationId) {
       }
       let imagePath = null
       if (image?.file) {
-        imagePath = `${conversationId}/${crypto.randomUUID()}.${IMAGE_EXT[image.file.type] ?? 'jpg'}`
+        // Recompression WebP côté client (fallback : fichier original).
+        const file = await compressImage(image.file)
+        imagePath = `${conversationId}/${crypto.randomUUID()}.${IMAGE_EXT[file.type] ?? 'jpg'}`
         const { error: uploadError } = await supabase.storage
           .from(IMAGE_BUCKET)
-          .upload(imagePath, image.file, { contentType: image.file.type })
+          .upload(imagePath, file, { contentType: file.type })
         if (uploadError) throw uploadError
       }
 
