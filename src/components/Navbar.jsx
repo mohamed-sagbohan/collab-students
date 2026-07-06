@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router'
-import { GraduationCap, BookOpen, LayoutDashboard, ChevronDown } from 'lucide-react'
+import { GraduationCap, BookOpen, LayoutDashboard, ChevronDown, ClipboardList } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import SearchBar from './SearchBar'
@@ -47,6 +47,13 @@ export default function Navbar() {
             to="/cours"
             icon={BookOpen}
             label="Cours"
+            className="gap-1.5 px-2.5 text-xs sm:text-sm"
+            labelClassName="hidden md:block"
+          />
+          <NavItem
+            to="/resultats"
+            icon={ClipboardList}
+            label="Résultats"
             className="gap-1.5 px-2.5 text-xs sm:text-sm"
             labelClassName="hidden md:block"
           />

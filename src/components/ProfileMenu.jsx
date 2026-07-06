@@ -1,4 +1,5 @@
-import { LogOut } from 'lucide-react'
+import { LogOut, ClipboardList } from 'lucide-react'
+import { Link } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import SearchBar from './SearchBar'
@@ -30,6 +31,17 @@ export default function ProfileMenu({ onClose, searchInMenu = false, themeAlways
         <p className="text-xs text-muted-foreground mb-2">Thème</p>
         <ThemeToggle />
       </div>
+
+      {profile?.role === 'apprenante' && (
+        <Link
+          to="/resultats"
+          onClick={() => onClose?.()}
+          className="flex items-center gap-2.5 w-full px-4 py-3 min-h-11 text-sm text-foreground hover:bg-muted transition-colors border-b border-border"
+        >
+          <ClipboardList className="w-4 h-4 text-primary" aria-hidden="true" />
+          Mes résultats
+        </Link>
+      )}
 
       <button
         onClick={() => {

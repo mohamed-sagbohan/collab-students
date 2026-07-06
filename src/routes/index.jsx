@@ -13,6 +13,7 @@ import StudentDashboard from '../pages/student/Dashboard'
 import CourseList from '../pages/student/CourseList'
 import CourseDetail from '../pages/student/CourseDetail'
 import LessonReader from '../pages/student/LessonReader'
+import MyResults from '../pages/student/MyResults'
 import InstructorDashboard from '../pages/instructor/Dashboard'
 import InstructorLiveMonitor from '../pages/instructor/LiveMonitor'
 import AdminDashboard from '../pages/admin/Dashboard'
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
           { path: '/cours', element: <CourseList /> },
           { path: '/cours/:id', element: <CourseDetail /> },
           { path: '/cours/:courseId/lecons/:lessonId', element: <LessonReader /> },
+          { path: '/resultats', element: <MyResults /> },
         ],
       },
     ],
