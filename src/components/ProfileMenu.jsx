@@ -1,4 +1,4 @@
-import { LogOut, ClipboardList } from 'lucide-react'
+import { LogOut, ClipboardList, KeyRound } from 'lucide-react'
 import { Link } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
@@ -10,8 +10,10 @@ import SearchBar from './SearchBar'
  * de la bottom nav mobile.
  * - `searchInMenu` : affiche la recherche (utile dans le dropdown navbar < sm)
  * - `themeAlways` : affiche le choix de thème à toutes les tailles
+ * - `onChangePassword` : le PARENT ferme le menu et ouvre le dialog (qui doit
+ *   vivre hors du menu — un dropdown fermé démonterait un dialog enfant)
  */
-export default function ProfileMenu({ onClose, searchInMenu = false, themeAlways = false }) {
+export default function ProfileMenu({ onClose, searchInMenu = false, themeAlways = false, onChangePassword }) {
   const { profile, logout } = useAuth()
 
   return (
@@ -41,6 +43,19 @@ export default function ProfileMenu({ onClose, searchInMenu = false, themeAlways
           <ClipboardList className="w-4 h-4 text-primary" aria-hidden="true" />
           Mes résultats
         </Link>
+      )}
+
+      {onChangePassword && (
+        <button
+          onClick={() => {
+            onClose?.()
+            onChangePassword()
+          }}
+          className="flex items-center gap-2.5 w-full px-4 py-3 min-h-11 text-sm text-foreground hover:bg-muted transition-colors border-b border-border"
+        >
+          <KeyRound className="w-4 h-4 text-primary" aria-hidden="true" />
+          Modifier mon mot de passe
+        </button>
       )}
 
       <button

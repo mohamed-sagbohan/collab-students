@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { LayoutDashboard, BookOpen, Users, Activity, LogOut, GraduationCap, Menu, X, BarChart3, PenSquare, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Users, Activity, LogOut, GraduationCap, Menu, X, BarChart3, PenSquare, MessageCircle, KeyRound } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from '../components/ThemeToggle'
+import ChangePasswordDialog from '../components/ChangePasswordDialog'
 import { SkipLink } from '../components/ui/SkipLink'
 import { NavItem } from '../components/ui/NavItem'
 import { Avatar } from '../components/ui/Avatar'
@@ -44,7 +45,7 @@ function LayoutBreadcrumb({ pathname, isAdmin }) {
   )
 }
 
-function SidebarContent({ profile, logout, onClose }) {
+function SidebarContent({ profile, logout, onClose, onChangePassword }) {
   const links = profile?.role === 'admin' ? adminLinks : instructorLinks
   // Clé partagée avec la page Messagerie : un seul fetch, deux consommateurs.
   const { data: conversations = [] } = useStaffConversations()
@@ -112,6 +113,16 @@ function SidebarContent({ profile, logout, onClose }) {
       <div className="p-4 border-t border-border space-y-3">
         <ThemeToggle />
         <button
+          onClick={() => {
+            onClose?.()
+            onChangePassword?.()
+          }}
+          className="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-1"
+        >
+          <KeyRound className="w-4 h-4" />
+          Modifier mon mot de passe
+        </button>
+        <button
           onClick={logout}
           className="flex items-center gap-2.5 text-sm text-muted-foreground hover:text-destructive transition-colors px-1"
         >
@@ -127,6 +138,7 @@ export default function AdminLayout() {
   const { profile, logout } = useAuth()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
 
   // Canal realtime unique du chat côté staff (alimente le cache React Query,
   // aucun state React ici — pas de re-render du layout).
@@ -156,7 +168,7 @@ export default function AdminLayout() {
 
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-64 min-h-screen bg-card border-r border-border flex-col shrink-0 fixed top-0 left-0 bottom-0 z-30">
-        <SidebarContent profile={profile} logout={logout} />
+        <SidebarContent profile={profile} logout={logout} onChangePassword={() => setPwOpen(true)} />
       </aside>
 
       {/* Overlay mobile */}
@@ -170,8 +182,15 @@ export default function AdminLayout() {
         className={`fixed top-0 left-0 bottom-0 z-50 w-72 bg-card border-r border-border flex flex-col lg:hidden transition-transform duration-300 ease-out motion-reduce:transition-none ${
           sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}>
-        <SidebarContent profile={profile} logout={logout} onClose={() => setSidebarOpen(false)} />
+        <SidebarContent
+          profile={profile}
+          logout={logout}
+          onClose={() => setSidebarOpen(false)}
+          onChangePassword={() => setPwOpen(true)}
+        />
       </aside>
+
+      <ChangePasswordDialog open={pwOpen} onClose={() => setPwOpen(false)} />
 
       {/* Contenu */}
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0">

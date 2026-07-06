@@ -4,6 +4,7 @@ import { NavItem } from './ui/NavItem'
 import { Dialog } from './ui/Dialog'
 import SearchOverlay from './SearchOverlay'
 import ProfileMenu from './ProfileMenu'
+import ChangePasswordDialog from './ChangePasswordDialog'
 
 /**
  * Barre de navigation basse pour mobile (espace apprenant uniquement).
@@ -13,6 +14,7 @@ import ProfileMenu from './ProfileMenu'
 export default function BottomNav() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
 
   const actionClass =
     'flex flex-col items-center justify-center gap-1 flex-1 min-h-11 min-w-11 py-1.5 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors'
@@ -41,9 +43,15 @@ export default function BottomNav() {
 
       <Dialog open={profileOpen} onClose={() => setProfileOpen(false)} title="Profil" className="max-w-xs pb-2">
         <div className="-mx-6 sm:-mx-8 border-t border-border">
-          <ProfileMenu onClose={() => setProfileOpen(false)} themeAlways />
+          <ProfileMenu
+            onClose={() => setProfileOpen(false)}
+            onChangePassword={() => setPwOpen(true)}
+            themeAlways
+          />
         </div>
       </Dialog>
+
+      <ChangePasswordDialog open={pwOpen} onClose={() => setPwOpen(false)} />
     </>
   )
 }
