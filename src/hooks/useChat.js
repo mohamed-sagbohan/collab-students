@@ -26,10 +26,11 @@ export const EDIT_WINDOW_MS = 2 * 60 * 1000
 
 export const MESSAGE_SELECT = `
   id, conversation_id, sender_id, body, lesson_id, created_at, edited_at,
-  audio_path, audio_duration_sec, image_path,
+  audio_path, audio_duration_sec, image_path, reply_to_id,
   profiles:sender_id (name, role),
   lessons:lesson_id (title, course_id),
-  chat_reactions (emoji, user_id)
+  chat_reactions (emoji, user_id),
+  reply_to:chat_messages!reply_to_id (id, body, audio_path, image_path, sender_id, profiles:sender_id (name))
 `
 
 /** Palette de réactions — doit rester alignée avec le CHECK de la migration 025. */
@@ -247,7 +248,7 @@ export function useSendMessage(conversationId) {
   const toast = useToast()
 
   return useMutation({
-    mutationFn: async ({ body = null, lessonId = null, audio = null, image = null }) => {
+    mutationFn: async ({ body = null, lessonId = null, audio = null, image = null, replyToId = null }) => {
       // Pièce jointe : upload dans le bucket privé avant l'insertion du message.
       let audioPath = null
       if (audio?.blob) {
@@ -277,6 +278,7 @@ export function useSendMessage(conversationId) {
           audio_path: audioPath,
           audio_duration_sec: audio ? Math.max(1, Math.round(audio.durationSec ?? 1)) : null,
           image_path: imagePath,
+          reply_to_id: replyToId,
         })
         .select(MESSAGE_SELECT)
         .single()
@@ -288,7 +290,7 @@ export function useSendMessage(conversationId) {
       }
       return data
     },
-    onMutate: async ({ body = null, lessonId = null, lessonTitle = null, audio = null, image = null }) => {
+    onMutate: async ({ body = null, lessonId = null, lessonTitle = null, audio = null, image = null, replyTo = null }) => {
       await queryClient.cancelQueries({ queryKey: ['chat-messages', conversationId] })
       const tempId = `temp-${crypto.randomUUID()}`
       appendToCache(queryClient, conversationId, {
@@ -302,6 +304,17 @@ export function useSendMessage(conversationId) {
         image_path: null,
         // Aperçu local le temps de l'upload (URL révoquée par le composer).
         image_local_url: image?.previewUrl ?? null,
+        reply_to_id: replyTo?.id ?? null,
+        reply_to: replyTo
+          ? {
+              id: replyTo.id,
+              body: replyTo.body,
+              audio_path: replyTo.audio_path,
+              image_path: replyTo.image_path,
+              sender_id: replyTo.sender_id,
+              profiles: { name: replyTo.profiles?.name },
+            }
+          : null,
         created_at: new Date().toISOString(),
         pending: true,
         profiles: { name: profile?.name, role: profile?.role },

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play, Check, SmilePlus, ImagePlus } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play, Check, SmilePlus, ImagePlus, CornerUpLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
@@ -60,6 +60,15 @@ function fmtDuration(sec) {
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+/** Extrait court d'un message pour la citation (composer + bulle). */
+function messageExcerpt(m) {
+  if (!m) return 'Message supprimé'
+  if (m.body) return m.body.length > 90 ? `${m.body.slice(0, 90)}…` : m.body
+  if (m.image_path || m.image_local_url) return '📷 Photo'
+  if (m.audio_path || m.audio_duration_sec) return '🎤 Note vocale'
+  return 'Message'
 }
 
 /** Note vocale dans une bulle : URL signée chargée au premier clic, puis lecteur natif. */
@@ -225,8 +234,11 @@ function MessageBubble({
   showSenderInfo,
   onRequestDelete,
   onRequestEdit,
+  onRequestReply,
   onToggleReaction,
   onOpenLightbox,
+  onQuoteClick,
+  flash,
   isEditing,
   editText,
   onEditTextChange,
@@ -257,6 +269,8 @@ function MessageBubble({
     return REACTION_EMOJIS.filter((e) => byEmoji.has(e)).map((e) => byEmoji.get(e))
   }, [message.chat_reactions, currentUserId])
 
+  const canReply = !message.pending && !!onRequestReply && !isEditing
+
   const reactButton = canReact && (
     <button
       type="button"
@@ -270,8 +284,21 @@ function MessageBubble({
     </button>
   )
 
+  const replyButton = canReply && (
+    <button
+      type="button"
+      onClick={() => onRequestReply(message)}
+      aria-label="Répondre à ce message"
+      title="Répondre"
+      className={cn(ACTION_BTN, 'hover:text-primary hover:bg-primary/10')}
+    >
+      <CornerUpLeft className="w-3.5 h-3.5" aria-hidden="true" />
+    </button>
+  )
+
   return (
     <div className={cn('flex items-end gap-0.5 group', mine ? 'justify-end' : 'justify-start')}>
+      {mine && replyButton}
       {mine && reactButton}
       {canEdit && (
         <button
@@ -336,13 +363,36 @@ function MessageBubble({
         ) : (
           <div
             className={cn(
-              'px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words',
+              'px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words transition-shadow',
               mine
                 ? 'bg-primary text-primary-foreground rounded-br-md'
                 : 'bg-muted text-foreground rounded-bl-md',
-              message.pending && 'opacity-60'
+              message.pending && 'opacity-60',
+              flash && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
             )}
           >
+            {message.reply_to_id && (
+              <button
+                type="button"
+                onClick={() => onQuoteClick?.(message.reply_to_id)}
+                aria-label="Voir le message cité"
+                className={cn(
+                  'block w-full text-left mb-1.5 px-2.5 py-1.5 rounded-lg border-l-2 text-xs',
+                  mine
+                    ? 'bg-primary-foreground/10 border-primary-foreground/40'
+                    : 'bg-background/60 border-primary/40'
+                )}
+              >
+                {message.reply_to?.profiles?.name && (
+                  <span className={cn('block font-semibold mb-0.5', mine ? 'text-primary-foreground/90' : 'text-primary')}>
+                    {message.reply_to.profiles.name}
+                  </span>
+                )}
+                <span className={cn('block truncate', mine ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                  {messageExcerpt(message.reply_to)}
+                </span>
+              </button>
+            )}
             {hasImage && <ChatImage message={message} onOpenLightbox={onOpenLightbox} />}
             {hasAudio && <VoiceNote message={message} mine={mine} />}
             {message.body}
@@ -428,11 +478,23 @@ function MessageBubble({
         )}
       </div>
       {!mine && reactButton}
+      {!mine && replyButton}
     </div>
   )
 }
 
-function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClearLessonContext, placeholder, allowVoice = true }) {
+function Composer({
+  onSend,
+  sending,
+  disabled,
+  sendTyping,
+  lessonContext,
+  onClearLessonContext,
+  replyTo = null,
+  onCancelReply,
+  placeholder,
+  allowVoice = true,
+}) {
   const [text, setText] = useState('')
   // Photo sélectionnée : { file, url } (url = aperçu local, révoqué à l'envoi/retrait).
   const [image, setImage] = useState(null)
@@ -480,12 +542,16 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
     setImageError(null)
     const ctx = lessonContext
     const img = image
+    const quote = replyTo
     onClearLessonContext?.()
+    onCancelReply?.()
     onSend({
       body: body || null,
       lessonId: ctx?.id ?? null,
       lessonTitle: ctx?.title ?? null,
       image: img ? { file: img.file, previewUrl: img.url } : null,
+      replyToId: quote?.id ?? null,
+      replyTo: quote,
     })
       .then(() => {
         if (img) {
@@ -502,12 +568,16 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
   function sendVoice() {
     if (!recorder.blob || sending || disabled) return
     const ctx = lessonContext
+    const quote = replyTo
     onClearLessonContext?.()
+    onCancelReply?.()
     onSend({
       body: null,
       lessonId: ctx?.id ?? null,
       lessonTitle: ctx?.title ?? null,
       audio: { blob: recorder.blob, durationSec: recorder.seconds, mimeType: recorder.blob.type },
+      replyToId: quote?.id ?? null,
+      replyTo: quote,
     })
       .then(() => recorder.reset())
       .catch(() => {
@@ -519,6 +589,25 @@ function Composer({ onSend, sending, disabled, sendTyping, lessonContext, onClea
 
   return (
     <div className="border-t border-border p-3 shrink-0 bg-card">
+      {replyTo && (
+        <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-muted border-l-2 border-primary/60 text-xs">
+          <CornerUpLeft className="w-3.5 h-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <span className="flex-1 min-w-0">
+            <span className="block font-semibold text-primary truncate">
+              Réponse à {replyTo.profiles?.name ?? 'ce message'}
+            </span>
+            <span className="block text-muted-foreground truncate">{messageExcerpt(replyTo)}</span>
+          </span>
+          <button
+            type="button"
+            onClick={onCancelReply}
+            aria-label="Annuler la réponse"
+            className="inline-flex items-center justify-center w-11 h-11 -my-2.5 -mr-1.5 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
+          >
+            <X className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
       {lessonContext && (
         <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-primary/5 border border-primary/20 text-xs text-primary">
           <BookOpen className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -708,11 +797,33 @@ export default function ChatThread({
 }) {
   const confirm = useConfirm()
   const containerRef = useRef(null)
+  const rootRef = useRef(null)
   // Édition en cours : { id, text } | null
   const [editing, setEditing] = useState(null)
   const [savingEdit, setSavingEdit] = useState(false)
   // Photo affichée en grand : URL signée | null
   const [lightboxUrl, setLightboxUrl] = useState(null)
+  // Message en cours de citation (bouton « Répondre ») : message | null
+  const [replyTo, setReplyTo] = useState(null)
+  // Message brièvement surligné après un clic sur une citation
+  const [flashId, setFlashId] = useState(null)
+  const flashTimerRef = useRef(null)
+  useEffect(() => () => clearTimeout(flashTimerRef.current), [])
+
+  function requestReply(message) {
+    setReplyTo(message)
+    // Le focus revient au composer pour écrire la réponse immédiatement.
+    rootRef.current?.querySelector('textarea[aria-label="Votre message"]')?.focus()
+  }
+
+  function scrollToQuoted(messageId) {
+    const el = containerRef.current?.querySelector(`[data-mid="${messageId}"]`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setFlashId(messageId)
+    clearTimeout(flashTimerRef.current)
+    flashTimerRef.current = setTimeout(() => setFlashId(null), 1600)
+  }
 
   // Re-rendu périodique : le bouton « Modifier » disparaît de lui-même
   // à la fin de la fenêtre de 2 minutes.
@@ -823,7 +934,7 @@ export default function ChatThread({
   }, [messages, currentUserId])
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div ref={rootRef} className="flex flex-col h-full min-h-0">
       <div className="relative flex-1 min-h-0">
       <div
         ref={containerRef}
@@ -872,7 +983,7 @@ export default function ChatThread({
               const newDay =
                 !prev || new Date(prev.created_at).toDateString() !== new Date(message.created_at).toDateString()
               return (
-                <li key={message.id}>
+                <li key={message.id} data-mid={message.id}>
                   {newDay && (
                     <p className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider my-3 first:mt-0">
                       {dayLabel(message.created_at)}
@@ -886,7 +997,10 @@ export default function ChatThread({
                     showSenderInfo={showSenderInfo}
                     onToggleReaction={onToggleReaction}
                     onOpenLightbox={setLightboxUrl}
+                    onQuoteClick={scrollToQuoted}
+                    flash={flashId === message.id}
                     onRequestDelete={onDelete ? requestDelete : undefined}
+                    onRequestReply={requestReply}
                     onRequestEdit={onEdit ? (m) => setEditing({ id: m.id, text: m.body }) : undefined}
                     isEditing={editing?.id === message.id}
                     editText={editing?.id === message.id ? editing.text : ''}
@@ -939,6 +1053,8 @@ export default function ChatThread({
         sendTyping={sendTyping}
         lessonContext={lessonContext}
         onClearLessonContext={onClearLessonContext}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
         placeholder={composerPlaceholder}
         allowVoice={allowVoice}
       />
