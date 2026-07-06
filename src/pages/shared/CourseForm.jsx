@@ -27,6 +27,7 @@ export default function CourseForm() {
   const [title, setTitle]       = useState('')
   const [desc, setDesc]         = useState('')
   const [published, setPublished] = useState(false)
+  const [sequential, setSequential] = useState(false)
   const [saved, setSaved]       = useState(false)
 
   // Chargement du cours existant
@@ -35,7 +36,7 @@ export default function CourseForm() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, title, description, published')
+        .select('id, title, description, published, sequential')
         .eq('id', courseId)
         .single()
       if (error) throw error
@@ -49,6 +50,7 @@ export default function CourseForm() {
       setTitle(course.title ?? '')
       setDesc(course.description ?? '')
       setPublished(course.published ?? false)
+      setSequential(course.sequential ?? false)
     }
   }, [course])
 
@@ -73,7 +75,7 @@ export default function CourseForm() {
       if (isNew) {
         const { data, error } = await supabase
           .from('courses')
-          .insert({ title, description: desc, published, instructor_id: user.id })
+          .insert({ title, description: desc, published, sequential, instructor_id: user.id })
           .select('id')
           .single()
         if (error) throw error
@@ -81,7 +83,7 @@ export default function CourseForm() {
       } else {
         const { error } = await supabase
           .from('courses')
-          .update({ title, description: desc, published })
+          .update({ title, description: desc, published, sequential })
           .eq('id', courseId)
         if (error) throw error
         return courseId
@@ -193,6 +195,34 @@ export default function CourseForm() {
               ? <span className="text-success flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> Publié — visible par les apprenants</span>
               : <span className="text-muted-foreground flex items-center gap-1"><EyeOff className="w-3.5 h-3.5" /> Brouillon — non visible</span>
             }
+          </span>
+        </div>
+
+        {/* Toggle parcours séquentiel */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={sequential}
+            aria-label={sequential ? 'Désactiver le parcours séquentiel' : 'Activer le parcours séquentiel'}
+            onClick={() => setSequential((s) => !s)}
+            className={`relative w-10 h-[22px] rounded-full border transition-colors after:absolute after:-inset-3 after:content-[''] ${
+              sequential ? 'bg-primary border-primary' : 'bg-muted border-border'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform motion-reduce:transition-none ${
+                sequential ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+          <span className="text-sm font-medium text-foreground">
+            {sequential ? (
+              <span className="text-primary">Parcours séquentiel — les leçons se débloquent dans l'ordre</span>
+            ) : (
+              <span className="text-muted-foreground">Parcours libre — les leçons sont accessibles dans n'importe quel ordre</span>
+            )}
           </span>
         </div>
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { XCircle, CheckCircle, Play, RotateCcw, Trophy, Target, ChevronRight, AlertCircle, AlertTriangle, BookOpen, ClipboardList, Lightbulb, Clock, Keyboard, Check, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -278,6 +278,15 @@ function ExerciseIdle({ exercise, questionCount, onStart, onStartTraining }) {
 export default function ExerciseRunner({ exerciseId, onComplete }) {
   const { user } = useAuth()
   const toast = useToast()
+  const queryClient = useQueryClient()
+
+  // Un nouveau résultat peut débloquer la validation de la leçon
+  // (règles de la migration 029) et alimente le dashboard.
+  const refreshResults = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['my-exercise-results'] })
+    queryClient.invalidateQueries({ queryKey: ['activity-streak'] })
+    queryClient.invalidateQueries({ queryKey: ['wpm-dashboard'] })
+  }, [queryClient])
   const [phase, setPhase] = useState('idle')
   const [trainingMode, setTrainingMode] = useState(false)
   const [timerStarted, setTimerStarted] = useState(false)
@@ -313,7 +322,8 @@ export default function ExerciseRunner({ exerciseId, onComplete }) {
       return
     }
     setQcmResult(data)
-  }, [user?.id, exerciseId, exercise?.questions, toast])
+    refreshResults()
+  }, [user?.id, exerciseId, exercise?.questions, toast, refreshResults])
 
   const handleAnswer = (questionId, answer) => {
     if (!timerStarted) setTimerStarted(true)
@@ -355,11 +365,13 @@ export default function ExerciseRunner({ exerciseId, onComplete }) {
         if (error) {
           console.warn('exercise_results insert:', error.message)
           toast.error("Votre résultat n'a pas pu être enregistré. Vérifiez votre connexion.")
+        } else {
+          refreshResults()
         }
       })
     }
     onComplete?.()
-  }, [user?.id, exerciseId, onComplete, toast])
+  }, [user?.id, exerciseId, onComplete, toast, refreshResults])
 
   const handleRetry = () => {
     setPhase('idle')

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
-import { BookOpen, ChevronRight, ArrowLeft, CheckCircle, Download, Award, FileText, PlayCircle, Sparkles } from 'lucide-react'
+import { BookOpen, ChevronRight, ArrowLeft, CheckCircle, Download, Award, FileText, PlayCircle, Sparkles, Lock } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
@@ -24,7 +24,7 @@ export default function CourseDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, title, description, fiche_content, youtube_videos, lessons(id, title, order_index)')
+        .select('id, title, description, fiche_content, youtube_videos, sequential, lessons(id, title, order_index)')
         .eq('id', id)
         .single()
       if (error) throw error
@@ -255,6 +255,38 @@ export default function CourseDetail() {
           {course?.lessons?.map((lesson, index) => {
             const prog = progressMap[lesson.id]
             const done = prog?.completed ?? false
+            // Cours séquentiel (apprenant) : seule la première leçon non
+            // terminée est accessible, les suivantes sont verrouillées.
+            const firstTodoIndex = course.sequential
+              ? course.lessons.findIndex((l) => !(progressMap[l.id]?.completed ?? false))
+              : -1
+            const locked =
+              course.sequential &&
+              profile?.role === 'apprenante' &&
+              firstTodoIndex !== -1 &&
+              index > firstTodoIndex
+
+            if (locked) {
+              return (
+                <li key={lesson.id}>
+                  <div
+                    aria-disabled="true"
+                    style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
+                    className="animate-in fade-in slide-in-from-bottom-1 flex items-center gap-3 sm:gap-4 bg-card border border-border rounded-xl sm:rounded-2xl p-3.5 sm:p-4 opacity-55"
+                  >
+                    <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-muted border border-border text-muted-foreground flex items-center justify-center shrink-0">
+                      <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                    </span>
+                    <span className="font-medium text-sm sm:text-base flex-1 min-w-0 truncate text-muted-foreground">
+                      {lesson.title}
+                    </span>
+                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted border border-border px-2 py-0.5 rounded-full shrink-0 hidden sm:block">
+                      Terminez la leçon {firstTodoIndex + 1}
+                    </span>
+                  </div>
+                </li>
+              )
+            }
 
             return (
               <li key={lesson.id}>

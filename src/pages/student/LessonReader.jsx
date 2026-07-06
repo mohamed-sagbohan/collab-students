@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
-import { CheckCircle, ArrowLeft, ArrowRight, Zap, Clock, HelpCircle } from 'lucide-react'
+import { CheckCircle, ArrowLeft, ArrowRight, Zap, Clock, HelpCircle, Lock } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { sanitizeLessonHtml } from '../../lib/sanitizeHtml'
@@ -71,7 +71,7 @@ export default function LessonReader() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('courses')
-        .select('id, title, description, fiche_content, youtube_videos, lessons(id, title, order_index)')
+        .select('id, title, description, fiche_content, youtube_videos, sequential, lessons(id, title, order_index)')
         .eq('id', courseId)
         .single()
       if (error) throw error
@@ -80,6 +80,40 @@ export default function LessonReader() {
         lessons: data.lessons?.sort((a, b) => a.order_index - b.order_index),
       }
     },
+  })
+
+  // Progression sur tout le cours (même clé/requête que CourseDetail :
+  // servie depuis le cache) — sert au verrouillage séquentiel.
+  const { data: courseProgress = [] } = useQuery({
+    queryKey: ['course-progress', user?.id, courseId],
+    queryFn: async () => {
+      const lessonIds = course?.lessons?.map((l) => l.id) ?? []
+      if (!lessonIds.length) return []
+      const { data } = await supabase
+        .from('progress')
+        .select('lesson_id, completed, completed_at')
+        .eq('user_id', user.id)
+        .in('lesson_id', lessonIds)
+      return data ?? []
+    },
+    enabled: !!user && !!course,
+  })
+
+  // Mes résultats sur les exercices de la leçon — mêmes règles que le
+  // trigger serveur (migration 029) : quiz >= 60 %, dactylo faite.
+  const { data: myResults = [] } = useQuery({
+    queryKey: ['my-exercise-results', user?.id, lessonId],
+    queryFn: async () => {
+      const ids = lesson?.exercises?.map((e) => e.id) ?? []
+      if (!ids.length) return []
+      const { data } = await supabase
+        .from('exercise_results')
+        .select('exercise_id, result_type, score_pct')
+        .eq('user_id', user.id)
+        .in('exercise_id', ids)
+      return data ?? []
+    },
+    enabled: !!user && !!lesson?.exercises?.length,
   })
 
   const siblings = course?.lessons ?? []
@@ -110,13 +144,47 @@ export default function LessonReader() {
       queryClient.invalidateQueries({ queryKey: ['last-activity'] })
       queryClient.invalidateQueries({ queryKey: ['activity-streak'] })
     },
-    onError: () => toast.error("Impossible d'enregistrer votre progression. Vérifiez votre connexion et réessayez."),
+    onError: (err) => {
+      // Le trigger serveur (migration 029) est la vérité : on traduit ses refus.
+      const msg = err?.message ?? ''
+      if (msg.includes('QUIZ_REQUIS')) {
+        toast.error('Réussissez le quiz de la leçon (60 % minimum) pour la valider.')
+      } else if (msg.includes('DACTYLO_REQUISE')) {
+        toast.error("Terminez l'exercice de frappe pour valider la leçon.")
+      } else if (msg.includes('ORDRE_REQUIS')) {
+        toast.error("Terminez d'abord les leçons précédentes de ce cours.")
+      } else {
+        toast.error("Impossible d'enregistrer votre progression. Vérifiez votre connexion et réessayez.")
+      }
+    },
   })
 
   // Vérifie si la leçon contient au moins un exercice de dactylographie
   const hasDactylo = lesson?.exercises?.some((ex) =>
     ex.questions?.some((q) => q.type === 'dactylographie')
   )
+  const hasQuiz = lesson?.exercises?.some((ex) =>
+    ex.questions?.some((q) => q.type === 'qcm' || q.type === 'vrai_faux')
+  )
+
+  // Éligibilité à la validation — miroir exact du trigger serveur.
+  const quizPassed = !hasQuiz || myResults.some((r) => r.result_type === 'qcm' && r.score_pct >= 60)
+  const dactyloDone = !hasDactylo || myResults.some((r) => r.result_type === 'dactylographie')
+  const canComplete = quizPassed && dactyloDone
+  const missingSteps = [
+    !quizPassed && 'réussir le quiz (60 % minimum)',
+    !dactyloDone && "terminer l'exercice de frappe",
+  ].filter(Boolean)
+
+  // Verrouillage séquentiel : la première leçon non terminée est accessible,
+  // les suivantes attendent leur tour.
+  const doneSet = new Set(courseProgress.filter((p) => p.completed).map((p) => p.lesson_id))
+  const firstTodoIndex = siblings.findIndex((l) => !doneSet.has(l.id))
+  const isLocked =
+    !!course?.sequential &&
+    profile?.role === 'apprenante' &&
+    firstTodoIndex !== -1 &&
+    lessonIndex > firstTodoIndex
 
   if (isLoading) return (
     <div className="max-w-3xl mx-auto space-y-4">
@@ -129,6 +197,30 @@ export default function LessonReader() {
   )
 
   if (error) return <p className="text-destructive">Leçon introuvable.</p>
+
+  // Cours séquentiel : cette leçon n'est pas encore débloquée.
+  if (isLocked) {
+    const firstTodo = siblings[firstTodoIndex]
+    return (
+      <div className="max-w-md mx-auto text-center py-16">
+        <div className="w-14 h-14 bg-muted border border-border rounded-2xl flex items-center justify-center mx-auto mb-5">
+          <Lock className="w-6 h-6 text-muted-foreground" aria-hidden="true" />
+        </div>
+        <h1 className="text-xl font-extrabold text-foreground mb-2">Leçon verrouillée</h1>
+        <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+          Ce cours se suit dans l'ordre. Terminez d'abord la leçon
+          {' '}<span className="font-semibold text-foreground">« {firstTodo.title} »</span> pour débloquer celle-ci.
+        </p>
+        <Link
+          to={`/cours/${courseId}/lecons/${firstTodo.id}`}
+          className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-5 py-3 rounded-xl hover:bg-primary/90 transition-colors"
+        >
+          Reprendre là où j'en suis
+          <ArrowRight className="w-4 h-4" aria-hidden="true" />
+        </Link>
+      </div>
+    )
+  }
 
   // Sélecteur de clavier (modal, bloque l'accès si dactylo et pas encore choisi)
   if (hasDactylo && !kbType) {
@@ -203,14 +295,24 @@ export default function LessonReader() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <p className="font-bold text-foreground text-sm mb-0.5">Vous avez terminé cette leçon ?</p>
-              <p className="text-xs text-muted-foreground">Validez pour enregistrer votre progression.</p>
+              <p className="text-xs text-muted-foreground">
+                {canComplete
+                  ? 'Validez pour enregistrer votre progression.'
+                  : `Pour valider : ${missingSteps.join(' et ')}.`}
+              </p>
             </div>
             <Button
               onClick={() => markComplete.mutate()}
               loading={markComplete.isPending}
+              disabled={!canComplete}
+              title={canComplete ? undefined : `Pour valider : ${missingSteps.join(' et ')}.`}
               className="shrink-0 w-full sm:w-auto"
             >
-              {!markComplete.isPending && <CheckCircle className="w-4 h-4" aria-hidden="true" />}
+              {!markComplete.isPending && (
+                canComplete
+                  ? <CheckCircle className="w-4 h-4" aria-hidden="true" />
+                  : <Lock className="w-4 h-4" aria-hidden="true" />
+              )}
               {markComplete.isPending ? 'Enregistrement...' : 'Marquer comme terminée'}
             </Button>
           </div>
