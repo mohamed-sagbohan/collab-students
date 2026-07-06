@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { Trash2, Users, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Skeleton } from '../../components/Skeleton'
@@ -11,6 +12,7 @@ import { PageHeader } from '../../components/ui/PageHeader'
 import { TableShell, Table, THead, TH, TBody, TR, TD, MobileCards } from '../../components/ui/Table'
 
 const ROLES = ['apprenante', 'formateur', 'admin']
+const PAGE_SIZE = 25
 
 const roleBadge = {
   apprenante: 'bg-primary/10 text-primary border-primary/20',
@@ -24,17 +26,39 @@ export default function AdminUsers() {
   const toast = useToast()
   const { user: currentUser } = useAuth()
 
-  const { data: users, isLoading } = useQuery({
-    queryKey: ['admin-users'],
+  // Pagination + recherche CÔTÉ SERVEUR : la page reste rapide
+  // quel que soit le nombre d'inscrits.
+  const [page, setPage] = useState(0)
+  const [search, setSearch] = useState('')
+  const [debounced, setDebounced] = useState('')
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setDebounced(search.trim())
+      setPage(0)
+    }, 300)
+    return () => clearTimeout(id)
+  }, [search])
+
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['admin-users', page, debounced],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('profiles')
-        .select('id, name, role, created_at')
+        .select('id, name, role, created_at', { count: 'exact' })
         .order('created_at', { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
+      if (debounced) q = q.ilike('name', `%${debounced.replace(/[%_]/g, '\\$&')}%`)
+      const { data: rows, error, count } = await q
       if (error) throw error
-      return data
+      return { users: rows ?? [], count: count ?? 0 }
     },
+    placeholderData: keepPreviousData,
   })
+
+  const users = data?.users
+  const totalCount = data?.count ?? 0
+  const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   const updateRole = useMutation({
     mutationFn: async ({ id, role }) => {
@@ -79,12 +103,24 @@ export default function AdminUsers() {
       <PageHeader
         eyebrow="Administration"
         title="Utilisateurs"
-        description={`${isLoading ? '—' : users?.length} compte${users?.length !== 1 ? 's' : ''} inscrit${users?.length !== 1 ? 's' : ''}`}
+        description={`${isLoading ? '—' : totalCount} compte${totalCount !== 1 ? 's' : ''} inscrit${totalCount !== 1 ? 's' : ''}`}
       />
 
       {deleteUser.isError && (
         <p className="text-xs text-destructive mb-4">Erreur : {deleteUser.error?.message}</p>
       )}
+
+      <label className="relative block mb-4 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher un utilisateur…"
+          aria-label="Rechercher un utilisateur par nom"
+          className="w-full h-11 pl-9 pr-3 bg-card border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
+        />
+      </label>
 
       {isLoading && (
         <div className="space-y-3">
@@ -93,7 +129,11 @@ export default function AdminUsers() {
       )}
 
       {!isLoading && users?.length === 0 && (
-        <EmptyState icon={Users} title="Aucun utilisateur" />
+        <EmptyState
+          icon={Users}
+          title={debounced ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur'}
+          description={debounced ? 'Essayez un autre nom.' : undefined}
+        />
       )}
 
       {!isLoading && users?.length > 0 && (
@@ -185,6 +225,36 @@ export default function AdminUsers() {
               )
             })}
           </MobileCards>
+
+          {/* Pagination */}
+          {pageCount > 1 && (
+            <nav
+              aria-label="Pagination des utilisateurs"
+              className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border"
+            >
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0 || isFetching}
+                className="inline-flex items-center gap-1.5 min-h-11 px-3.5 rounded-xl text-sm font-medium text-foreground border border-border hover:border-primary/30 hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+                Précédent
+              </button>
+              <span className="text-xs text-muted-foreground" aria-live="polite">
+                Page {page + 1} / {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                disabled={page >= pageCount - 1 || isFetching}
+                className="inline-flex items-center gap-1.5 min-h-11 px-3.5 rounded-xl text-sm font-medium text-foreground border border-border hover:border-primary/30 hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
+                Suivant
+                <ChevronRight className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </nav>
+          )}
 
         </div>
       )}
