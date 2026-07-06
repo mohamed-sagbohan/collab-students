@@ -298,6 +298,30 @@ export function useDeleteMessage(conversationId) {
   })
 }
 
+/* ── Accusés de lecture : curseurs des autres participants ─────────── */
+
+/** Curseurs de lecture de la conversation (migration 024) — sert à afficher
+    « Vu » sous son dernier message lu par l'autre côté. */
+export function useConversationReads(conversationId) {
+  const { user } = useAuth()
+
+  const { data: reads = [] } = useQuery({
+    queryKey: ['chat-peer-reads', conversationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('chat_reads')
+        .select('user_id, last_read_at')
+        .eq('conversation_id', conversationId)
+      if (error) throw error
+      return data ?? []
+    },
+    enabled: !!conversationId && !!user,
+    staleTime: 30_000,
+  })
+
+  return reads
+}
+
 /* ── Canal de conversation : nouveaux messages + « en train d'écrire » ── */
 
 export function useConversationChannel({ conversationId, withPostgres = false, onInsert }) {
@@ -351,6 +375,18 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
         }
       )
     }
+
+    // Curseurs de lecture (migration 024) : l'upsert de l'autre participant
+    // arrive en INSERT ou UPDATE — dans les deux cas on rafraîchit le « Vu ».
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'chat_reads', filter: `conversation_id=eq.${conversationId}` },
+      (payload) => {
+        const row = payload.new
+        if (!row?.user_id || row.user_id === user.id) return
+        queryClient.invalidateQueries({ queryKey: ['chat-peer-reads', conversationId] })
+      }
+    )
 
     channel.on('broadcast', { event: 'typing' }, ({ payload }) => {
       if (!payload || payload.user_id === user.id) return

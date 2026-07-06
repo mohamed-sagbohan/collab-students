@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { Link } from 'react-router'
-import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play } from 'lucide-react'
+import { BookOpen, Send, MessageCircle, X, Loader2, ArrowDown, AlertCircle, Trash2, Pencil, Mic, Square, Play, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '../Skeleton'
 import { Button } from '../ui/Button'
@@ -132,6 +132,7 @@ function LessonContextCard({ message }) {
 function MessageBubble({
   message,
   mine,
+  seen,
   showSenderInfo,
   onRequestDelete,
   onRequestEdit,
@@ -227,6 +228,12 @@ function MessageBubble({
         <p className={cn('text-[10px] text-muted-foreground/70 mt-0.5', mine ? 'text-right mr-1' : 'ml-1')}>
           {message.pending ? 'Envoi…' : timeFmt.format(new Date(message.created_at))}
           {message.edited_at && !message.pending && ' · modifié'}
+          {seen && (
+            <span className="text-primary/80 font-semibold">
+              {' · '}
+              <Check className="inline w-3 h-3 -mt-px" aria-hidden="true" /> Vu
+            </span>
+          )}
         </p>
       </div>
     </div>
@@ -410,6 +417,7 @@ export default function ChatThread({
   disabled = false,
   sendTyping,
   peerTyping,
+  peerLastReadAt = null,
   lessonContext = null,
   onClearLessonContext,
   showSenderInfo = false,
@@ -448,6 +456,20 @@ export default function ChatThread({
       setSavingEdit(false)
     }
   }
+  // « Vu » : id du DERNIER de mes messages lu par l'autre participant
+  // (un seul indicateur, sous le message le plus récent concerné).
+  const lastSeenOwnId = useMemo(() => {
+    if (!peerLastReadAt) return null
+    const readTime = new Date(peerLastReadAt).getTime()
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.sender_id === currentUserId && !m.pending && new Date(m.created_at).getTime() <= readTime) {
+        return m.id
+      }
+    }
+    return null
+  }, [messages, peerLastReadAt, currentUserId])
+
   const nearBottomRef = useRef(true)
   const prependRef = useRef(null)
   const didInitRef = useRef(false)
@@ -575,6 +597,7 @@ export default function ChatThread({
                   <MessageBubble
                     message={message}
                     mine={message.sender_id === currentUserId}
+                    seen={message.id === lastSeenOwnId}
                     showSenderInfo={showSenderInfo}
                     onRequestDelete={onDelete ? requestDelete : undefined}
                     onRequestEdit={onEdit ? (m) => setEditing({ id: m.id, text: m.body }) : undefined}

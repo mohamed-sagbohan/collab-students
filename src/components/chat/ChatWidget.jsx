@@ -14,6 +14,7 @@ import {
   useConversationChannel,
   useChatPresence,
   useMyUnread,
+  useConversationReads,
   fetchFullMessage,
   appendToCache,
 } from '../../hooks/useChat'
@@ -119,6 +120,17 @@ function ChatWidgetInner() {
   const sendMessage = useSendMessage(conversationId)
   const deleteMessage = useDeleteMessage(conversationId)
   const editMessage = useEditMessage(conversationId)
+
+  // « Vu » : mon message est lu dès qu'un membre du staff (n'importe
+  // lequel, le fil est partagé) a un curseur postérieur à son envoi.
+  const reads = useConversationReads(everOpened ? conversationId : null)
+  const peerLastReadAt = useMemo(() => {
+    let max = null
+    for (const r of reads) {
+      if (r.user_id !== user.id && (!max || r.last_read_at > max)) max = r.last_read_at
+    }
+    return max
+  }, [reads, user.id])
 
   // Première ouverture : créer la conversation si besoin.
   useEffect(() => {
@@ -275,6 +287,7 @@ function ChatWidgetInner() {
             disabled={!conversationId || ensuring}
             sendTyping={sendTyping}
             peerTyping={peerTyping}
+            peerLastReadAt={peerLastReadAt}
             lessonContext={lessonContext}
             onClearLessonContext={() => setLessonContext(null)}
             showSenderInfo

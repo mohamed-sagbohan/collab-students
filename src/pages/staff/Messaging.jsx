@@ -24,6 +24,7 @@ import {
   useSetConversationArchived,
   useDeleteMessage,
   useEditMessage,
+  useConversationReads,
 } from '../../hooks/useChat'
 
 function timeAgo(dateStr) {
@@ -110,6 +111,13 @@ export default function Messaging() {
   // Canal de la conversation ouverte : typing uniquement (les INSERT arrivent
   // déjà par le canal global chat-staff monté dans AdminLayout).
   const { sendTyping, peerTyping } = useConversationChannel({ conversationId: activeId, withPostgres: false })
+
+  // « Vu » : seul le curseur de l'apprenante compte (pas ceux des collègues).
+  const reads = useConversationReads(activeId)
+  const peerLastReadAt = useMemo(
+    () => reads.find((r) => r.user_id === active?.student_id)?.last_read_at ?? null,
+    [reads, active?.student_id]
+  )
 
   const markStaffRead = useCallback(
     async (convId) => {
@@ -398,6 +406,7 @@ export default function Messaging() {
                   onEdit={(id, body) => editMessage.mutateAsync({ messageId: id, body })}
                   sendTyping={sendTyping}
                   peerTyping={peerTyping}
+                  peerLastReadAt={peerLastReadAt}
                   showSenderInfo
                   emptyTitle="Aucun message dans ce fil"
                   emptyDescription="Écrivez le premier message ci-dessous."
