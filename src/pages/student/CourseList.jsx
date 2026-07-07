@@ -167,7 +167,7 @@ export default function CourseList() {
                 key={course.id}
                 to={`/cours/${course.id}`}
                 style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
-                className="group animate-in fade-in slide-in-from-bottom-2 bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/8 transition-all duration-300"
+                className="group animate-in fade-in slide-in-from-bottom-2 bg-card border border-border rounded-2xl overflow-hidden shadow-card hover:border-primary/30 hover:-translate-y-1 hover:shadow-card-hover transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 {/* Header carte */}
                 <div className={`${accent.bg} border-b ${accent.border} p-5 flex items-center justify-between`}>

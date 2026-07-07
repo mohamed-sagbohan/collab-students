@@ -16,10 +16,10 @@ export function Card({ as: Tag = 'div', interactive = false, padding = 'md', cla
   return (
     <Tag
       className={cn(
-        'bg-card border border-border rounded-2xl',
+        'bg-card border border-border rounded-2xl shadow-card',
         PADDINGS[padding] ?? PADDINGS.md,
         interactive &&
-          'transition-all duration-200 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8 motion-reduce:transition-none motion-reduce:hover:translate-y-0',
+          'transition-all duration-200 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover motion-reduce:transition-none motion-reduce:hover:translate-y-0',
         className
       )}
       {...props}

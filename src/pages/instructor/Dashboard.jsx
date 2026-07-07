@@ -81,7 +81,7 @@ export default function InstructorDashboard() {
       {/* Lien vers le suivi */}
       <Link
         to="/formateur/suivi"
-        className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 mb-6 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/8 transition-all duration-200 group"
+        className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 mb-6 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
       >
         <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
           <Activity className="w-5 h-5 text-primary" />

@@ -49,7 +49,7 @@ export default function Landing() {
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/75 rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
               <GraduationCap className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="font-bold text-foreground text-base">LearnIT</span>
@@ -73,7 +73,8 @@ export default function Landing() {
 
         {/* ── HERO ── */}
         <section className="relative overflow-hidden">
-          {/* Glow de fond */}
+          {/* Quadrillage discret + glow de fond */}
+          <div className="absolute inset-0 bg-grid pointer-events-none" aria-hidden="true" />
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute top-20 left-1/4 w-[300px] h-[300px] bg-primary/5 rounded-full blur-2xl pointer-events-none" />
 
@@ -88,7 +89,7 @@ export default function Landing() {
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-foreground leading-[1.05] tracking-tight mb-5">
                 Apprenez
-                <span className="text-primary"> l'informatique</span>
+                <span className="bg-gradient-to-r from-primary via-primary to-amber-500 bg-clip-text text-transparent"> l'informatique</span>
                 <br />à votre rythme.
               </h1>
 
@@ -207,7 +208,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {features.map(({ icon: Icon, title, desc }, i) => (
               <Reveal key={title} delay={(i % 3) * 100}>
-                <div className="bg-card border border-border rounded-2xl p-6 hover:border-primary/30 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group h-full">
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-card hover:border-primary/30 hover:-translate-y-1 hover:shadow-card-hover transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group h-full">
                   <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5 group-hover:bg-primary/15 transition-colors">
                     <Icon className="w-5 h-5 text-primary" />
                   </div>
@@ -237,7 +238,7 @@ export default function Landing() {
                 { n: '04', title: 'Validez vos acquis', desc: 'Exercices interactifs corrigés instantanément pour ancrer vos connaissances.' },
               ].map(({ n, title, desc }, i) => (
                 <Reveal key={n} delay={i * 100}>
-                  <div className="relative bg-card border border-border rounded-2xl p-6 h-full">
+                  <div className="relative bg-card border border-border rounded-2xl p-6 h-full shadow-card">
                     <span className="text-4xl font-extrabold text-primary/20 leading-none block mb-4">{n}</span>
                     <h3 className="font-bold text-foreground mb-2">{title}</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
@@ -260,7 +261,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
             {TESTIMONIALS.map((t, i) => (
               <Reveal key={t.name} delay={i * 100}>
-                <figure className="bg-card border border-border rounded-2xl p-6 h-full flex flex-col">
+                <figure className="bg-card border border-border rounded-2xl p-6 h-full flex flex-col shadow-card">
                   <p className="text-primary text-sm mb-3" aria-hidden="true">★★★★★</p>
                   <blockquote className="text-sm text-foreground leading-relaxed flex-1">
                     « {t.quote} »
@@ -280,8 +281,9 @@ export default function Landing() {
 
         {/* ── CTA ── */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16 sm:pb-24">
-          <Reveal className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-card border border-border p-8 sm:p-16 text-center">
-            {/* Glow */}
+          <Reveal className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-card border border-border p-8 sm:p-16 text-center shadow-card">
+            {/* Quadrillage + glow */}
+            <div className="absolute inset-0 bg-grid pointer-events-none" aria-hidden="true" />
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-48 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
             <div className="relative">
               <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
@@ -290,7 +292,7 @@ export default function Landing() {
               </div>
               <h2 className="text-3xl sm:text-5xl font-extrabold text-foreground mb-4 leading-tight">
                 Prêt à maîtriser<br />
-                <span className="text-primary">l'informatique ?</span>
+                <span className="bg-gradient-to-r from-primary via-primary to-amber-500 bg-clip-text text-transparent">l'informatique ?</span>
               </h2>
               <p className="text-muted-foreground mb-8 sm:text-lg max-w-md mx-auto">
                 Rejoignez {STATS.learners} apprenants et commencez aujourd'hui, sans frais, sans engagement.

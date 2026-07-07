@@ -30,7 +30,7 @@ export default function Navbar() {
 
         {/* Logo */}
         <Link to="/dashboard" className="flex items-center gap-2 shrink-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary rounded-lg flex items-center justify-center">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-primary to-primary/75 rounded-lg flex items-center justify-center shadow-md shadow-primary/25">
             <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
           </div>
           <span className="font-bold text-foreground text-sm hidden sm:block">LearnIT</span>
