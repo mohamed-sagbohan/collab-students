@@ -12,6 +12,7 @@ import LoadingScreen from '../components/LoadingScreen'
  * télécharge jamais le code de l'admin (ni jsPDF, importé dynamiquement
  * par lib/certificate.js et lib/fichePdf.js au clic de téléchargement).
  */
+const Guide          = lazy(() => import('../pages/Guide'))
 const Login          = lazy(() => import('../pages/auth/Login'))
 const Register       = lazy(() => import('../pages/auth/Register'))
 const ForgotPassword = lazy(() => import('../pages/auth/ForgotPassword'))
@@ -47,6 +48,9 @@ function page(Component) {
 export const router = createBrowserRouter([
   // Landing / redirect selon rôle
   { path: '/', element: <RootPage /> },
+
+  // Guide d'utilisation (public, standalone comme la landing)
+  { path: '/guide', element: page(Guide) },
 
   // Callback de confirmation email (standalone, sans layout)
   { path: '/auth/callback', element: page(AuthCallback) },

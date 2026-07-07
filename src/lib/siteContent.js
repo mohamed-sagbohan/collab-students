@@ -47,6 +47,7 @@ export const FOOTER_LINKS = {
     { label: 'Fonctionnalités', href: '#fonctionnalites' },
     { label: 'Comment ça marche', href: '#parcours' },
     { label: 'Témoignages', href: '#temoignages' },
+    { label: "Guide d'utilisation", to: '/guide' },
   ],
   compte: [
     { label: 'Se connecter', to: '/login' },

@@ -57,6 +57,12 @@ export default function Landing() {
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
             <Link
+              to="/guide"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden md:block"
+            >
+              Guide d'utilisation
+            </Link>
+            <Link
               to="/login"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
             >
@@ -246,6 +252,21 @@ export default function Landing() {
                 </Reveal>
               ))}
             </div>
+
+            {/* Vers le guide pas à pas */}
+            <Reveal className="text-center mt-10">
+              <p className="text-sm text-muted-foreground mb-4">
+                Envie du détail, écran par écran ? Le guide complet vous accompagne de l'inscription au certificat.
+              </p>
+              <Link
+                to="/guide"
+                className={cn(buttonVariants({ variant: 'secondary', size: 'lg' }), 'shadow-card')}
+              >
+                <BookOpen className="w-4 h-4" aria-hidden="true" />
+                Consulter le guide d'utilisation
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              </Link>
+            </Reveal>
           </div>
         </section>
 
@@ -330,9 +351,15 @@ export default function Landing() {
             <ul className="space-y-2">
               {FOOTER_LINKS.navigation.map((l) => (
                 <li key={l.label}>
-                  <a href={l.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    {l.label}
-                  </a>
+                  {l.to ? (
+                    <Link to={l.to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {l.label}
+                    </Link>
+                  ) : (
+                    <a href={l.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {l.label}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
