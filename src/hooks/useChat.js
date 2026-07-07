@@ -630,9 +630,14 @@ export function useStudentHeartbeat() {
       void supabase.auth.getSession().then(({ data }) => {
         accessToken = data?.session?.access_token ?? null
       })
-      void supabase
+      // ⚠️ Les builders PostgREST sont paresseux : sans .then()/await, la
+      // requête ne part JAMAIS (un simple `void` la jette sans l'exécuter).
+      supabase
         .from('user_presence')
         .upsert({ user_id: user.id, last_seen_at: new Date().toISOString() })
+        .then(({ error }) => {
+          if (error) console.warn('Heartbeat présence :', error.message)
+        })
     }
 
     // pagehide (pas visibilitychange : changer d'onglet n'est pas partir).
