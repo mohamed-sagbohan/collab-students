@@ -62,5 +62,10 @@ export default defineConfig({
   },
   server: {
     allowedHosts: true,
+    watch: {
+      // Sorties Playwright : volumineuses et verrouillées pendant l'écriture
+      // (EBUSY sous Windows, fatal pour le watcher) — rien à surveiller là.
+      ignored: ['**/playwright-report/**', '**/test-results/**', '**/e2e/.auth/**'],
+    },
   },
 })

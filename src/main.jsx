@@ -27,7 +27,9 @@ createRoot(document.getElementById('root')).render(
             </ToastProvider>
           </ConfirmProvider>
         </AuthProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* Sous Playwright (navigator.webdriver), le bouton flottant des
+            devtools recouvre le widget de chat et intercepte les clics. */}
+        {!navigator.webdriver && <ReactQueryDevtools initialIsOpen={false} />}
       </QueryClientProvider>
     </ThemeProvider>
   </StrictMode>,
