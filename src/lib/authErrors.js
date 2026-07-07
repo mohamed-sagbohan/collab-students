@@ -2,6 +2,9 @@
 export function translateAuthError(error, fallback = 'Une erreur est survenue. Veuillez réessayer.') {
   const msg = error?.message?.toLowerCase() ?? ''
 
+  if (msg.includes('captcha')) {
+    return 'La vérification anti-robot a échoué. Rechargez la page et réessayez.'
+  }
   if (msg.includes('rate limit')) {
     return "Trop de tentatives d'envoi d'email en peu de temps. Merci de patienter quelques minutes avant de réessayer."
   }

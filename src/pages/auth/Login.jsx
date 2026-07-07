@@ -25,9 +25,13 @@ export default function Login() {
       navigate('/')
     } catch (err) {
       resetCaptcha() // jeton à usage unique : on en redemande un pour le prochain essai
+      const msg = err.message?.toLowerCase() ?? ''
       // Supabase renvoie "Email not confirmed" si l'email n'est pas confirmé
-      if (err.message?.toLowerCase().includes('email not confirmed')) {
+      if (msg.includes('email not confirmed')) {
         setError("Votre adresse email n'a pas encore été confirmée. Vérifiez votre boîte de réception.")
+      } else if (msg.includes('captcha')) {
+        // Ne pas masquer un échec CAPTCHA en « mot de passe incorrect »
+        setError('La vérification anti-robot a échoué. Rechargez la page et réessayez.')
       } else {
         setError('Email ou mot de passe incorrect.')
       }
