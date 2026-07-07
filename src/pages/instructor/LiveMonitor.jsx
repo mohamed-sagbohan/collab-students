@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, Zap, Target, Users, Clock, Wifi, WifiOff, Keyboard, CheckCircle, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useOnlineStudents } from '../../hooks/useChat'
 import { Skeleton } from '../../components/Skeleton'
 import { StatCard } from '../../components/ui/StatCard'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -77,6 +78,8 @@ export default function LiveMonitor() {
   const [connected, setConnected] = useState(false)
   const [newIds, setNewIds] = useState(new Set())
   const queryClient = useQueryClient()
+  // Présence réelle (heartbeat < 3 min), rafraîchie par realtime + poll 20 s.
+  const { data: onlineCount, isLoading: loadingOnline } = useOnlineStudents()
 
   const { data: results, isLoading } = useQuery({
     queryKey: ['live-monitor'],
@@ -114,15 +117,14 @@ export default function LiveMonitor() {
   }, [queryClient])
 
   const stats = useMemo(() => {
-    if (!results?.length) return { total: 0, todayCount: 0, avgWpm: 0, avgScore: 0, activeStudents: 0 }
+    if (!results?.length) return { total: 0, todayCount: 0, avgWpm: 0, avgScore: 0 }
     const today = new Date().toDateString()
     const todayResults = results.filter((r) => new Date(r.created_at).toDateString() === today)
     const dactyloResults = results.filter((r) => r.result_type === 'dactylographie' && r.wpm)
     const qcmResults = results.filter((r) => r.result_type === 'qcm' && r.score_pct !== null)
     const avgWpm = dactyloResults.length ? Math.round(dactyloResults.reduce((s, r) => s + r.wpm, 0) / dactyloResults.length) : 0
     const avgScore = qcmResults.length ? Math.round(qcmResults.reduce((s, r) => s + r.score_pct, 0) / qcmResults.length) : 0
-    const activeStudents = new Set(results.map((r) => r.profiles?.name)).size
-    return { total: results.length, todayCount: todayResults.length, avgWpm, avgScore, activeStudents }
+    return { total: results.length, todayCount: todayResults.length, avgWpm, avgScore }
   }, [results])
 
   return (
@@ -164,7 +166,15 @@ export default function LiveMonitor() {
         ) : (
           [
             { label: "Résultats aujourd'hui", value: stats.todayCount, icon: Activity, color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
-            { label: 'Apprenants actifs', value: stats.activeStudents, icon: Users, color: 'text-violet-500', bg: 'bg-violet-500/10', border: 'border-violet-500/20' },
+            {
+              label: 'Apprenants en ligne',
+              value: loadingOnline ? '—' : onlineCount ?? 0,
+              icon: Users,
+              color: 'text-violet-500',
+              bg: 'bg-violet-500/10',
+              border: 'border-violet-500/20',
+              trailing: <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" aria-hidden="true" title="Mis à jour en temps réel" />,
+            },
             { label: 'WPM moyen (dactylo)', value: stats.avgWpm || '—', icon: Keyboard, color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/20' },
             { label: 'Score moyen (QCM)', value: stats.avgScore ? `${stats.avgScore}%` : '—', icon: Target, color: 'text-success', bg: 'bg-success/10', border: 'border-success/20' },
           ].map((card, i) => <StatCard key={card.label} {...card} delay={i * 60} />)

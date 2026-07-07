@@ -612,31 +612,104 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
 
 /** Heartbeat de présence de l'apprenante (migration 030) : un upsert
     toutes les 2 minutes suffit aux pastilles « en ligne » du staff —
-    aucun canal realtime partagé entre toutes les connectées (coût N²). */
+    aucun canal realtime partagé entre toutes les connectées (coût N²).
+    Au départ (fermeture d'onglet, navigation externe, déconnexion), le
+    heartbeat est antidaté pour passer « hors ligne » immédiatement au
+    lieu d'attendre l'expiration des 3 minutes. */
 export function useStudentHeartbeat() {
   const { user, profile } = useAuth()
 
   useEffect(() => {
     if (!user || profile?.role !== 'apprenante') return
     let cancelled = false
+    let accessToken = null
+
     const beat = () => {
       if (cancelled || document.visibilityState === 'hidden') return
+      // Jeton conservé pour le signal de départ (fetch keepalive, hors client supabase).
+      void supabase.auth.getSession().then(({ data }) => {
+        accessToken = data?.session?.access_token ?? null
+      })
       void supabase
         .from('user_presence')
         .upsert({ user_id: user.id, last_seen_at: new Date().toISOString() })
     }
+
+    // pagehide (pas visibilitychange : changer d'onglet n'est pas partir).
+    // fetch keepalive : survit au déchargement de la page, contrairement au
+    // client supabase. NB multi-onglets : l'onglet restant re-signalera la
+    // présence à son prochain battement (blip « hors ligne » bref, rare).
+    const goOffline = () => {
+      if (!accessToken) return
+      void fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_id=eq.${user.id}`,
+        {
+          method: 'PATCH',
+          keepalive: true,
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({ last_seen_at: new Date(Date.now() - 10 * 60_000).toISOString() }),
+        }
+      ).catch(() => {})
+    }
+
     beat()
     const id = setInterval(beat, 120_000)
     const onVisible = () => {
       if (document.visibilityState === 'visible') beat()
     }
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pagehide', goOffline)
     return () => {
       cancelled = true
       clearInterval(id)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pagehide', goOffline)
+      goOffline() // déconnexion / changement de rôle : hors ligne tout de suite
     }
   }, [user?.id, profile?.role]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** Nombre d'apprenantes en ligne (heartbeat < 3 min) — staff uniquement (RLS).
+    Mise à jour temps réel par les événements user_presence (migration 031) ;
+    le refetch périodique couvre les passages hors ligne par simple expiration
+    (aucun événement n'est émis quand un heartbeat devient trop vieux). */
+export function useOnlineStudents() {
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
+    queryKey: ['online-students'],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 3 * 60_000).toISOString()
+      const { count, error } = await supabase
+        .from('user_presence')
+        .select('user_id', { count: 'exact', head: true })
+        .gte('last_seen_at', since)
+      if (error) throw error
+      return count ?? 0
+    },
+    refetchInterval: 20_000,
+  })
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('presence-monitor')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_presence' },
+        () => queryClient.invalidateQueries({ queryKey: ['online-students'] })
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient])
+
+  return query
 }
 
 /** Canal de présence realtime — réservé au STAFF depuis la migration 030
@@ -755,6 +828,9 @@ export function useStaffConversations({ archived = false, search = '', page = 0 
     },
     enabled: isStaff,
     staleTime: 15_000,
+    // Rafraîchit les pastilles « en ligne » (présence par heartbeat)
+    // sans attendre un événement de message.
+    refetchInterval: 60_000,
     placeholderData: keepPreviousData,
   })
 }
