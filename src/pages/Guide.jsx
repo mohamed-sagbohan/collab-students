@@ -24,6 +24,7 @@ const SECTIONS = [
       'Cliquez sur le lien contenu dans ce message — votre compte est activé !',
     ],
     tip: "Pas de mail reçu ? Vérifiez votre dossier « spam » ou « courrier indésirable », il s'y cache parfois.",
+    shot: { src: '/guide/compte.png', alt: "Formulaire d'inscription de LearnIT : nom, adresse email et mot de passe" },
   },
   {
     id: 'connexion',
@@ -35,6 +36,7 @@ const SECTIONS = [
       'Vous arrivez directement sur votre tableau de bord.',
     ],
     tip: 'Mot de passe oublié ? Cliquez sur « Mot de passe oublié » sur la page de connexion : vous recevrez un lien par email pour en choisir un nouveau.',
+    shot: { src: '/guide/connexion.png', alt: 'Page de connexion de LearnIT avec les champs email et mot de passe' },
   },
   {
     id: 'tableau-de-bord',
@@ -48,6 +50,7 @@ const SECTIONS = [
       'Plus bas : vos statistiques, votre progression en vitesse de frappe et vos badges.',
     ],
     tip: 'À votre première visite, un petit guide de bienvenue vous présente la plateforme écran par écran.',
+    shot: { src: '/guide/tableau-de-bord.png', alt: "Tableau de bord d'une apprenante : progression globale, carte de reprise et statistiques" },
   },
   {
     id: 'cours',
@@ -62,6 +65,7 @@ const SECTIONS = [
       'En bas de chaque leçon, cliquez sur « Marquer comme terminée » — si la leçon contient des exercices, réussissez-les d\'abord.',
     ],
     tip: 'Vous pouvez relire une leçon déjà terminée autant de fois que vous le souhaitez.',
+    shot: { src: '/guide/cours.png', alt: "Page d'un cours : le programme des leçons, numérotées et à suivre dans l'ordre" },
   },
   {
     id: 'exercices',
@@ -74,6 +78,7 @@ const SECTIONS = [
       'Au premier exercice de frappe, indiquez votre type de clavier (AZERTY, QWERTY, Mac) pour recevoir les bons raccourcis d\'accents.',
     ],
     tip: 'Un exercice raté n\'est jamais bloquant : recommencez autant de fois que nécessaire, seul votre meilleur résultat compte.',
+    shot: { src: '/guide/exercices.png', alt: "Fin d'une leçon : exercice de dactylographie avec les modes examen et entraînement" },
   },
   {
     id: 'progres',
@@ -86,6 +91,7 @@ const SECTIONS = [
       'Quand toutes les leçons d\'un cours sont terminées, téléchargez votre certificat de réussite en PDF.',
     ],
     tip: 'Le graphique de vitesse de frappe sur le tableau de bord montre vos 10 dernières sessions : idéal pour voir vos progrès.',
+    shot: { src: '/guide/progres.png', alt: 'Page Mes résultats : historique des exercices et moyennes' },
   },
   {
     id: 'aide',
@@ -98,6 +104,7 @@ const SECTIONS = [
       'Un formateur vous répond directement dans la discussion ; la cloche 🔔 vous prévient des nouvelles réponses.',
     ],
     tip: 'Aucune question n\'est « bête » : les formateurs sont là précisément pour accompagner les débutants.',
+    shot: { src: '/guide/aide.png', alt: 'Fenêtre de discussion avec le support ouverte en bas à droite du tableau de bord' },
   },
   {
     id: 'personnalisation',
@@ -111,8 +118,24 @@ const SECTIONS = [
       'Sur téléphone ou tablette, tout fonctionne aussi : la navigation se place en bas de l\'écran.',
     ],
     tip: 'Votre type de clavier peut être modifié à tout moment depuis une leçon de frappe si vous changez d\'ordinateur.',
+    shot: { src: '/guide/personnalisation.png', alt: 'Menu profil ouvert : Mes résultats, modifier le mot de passe et déconnexion' },
   },
 ]
+
+/** Capture d'écran encadrée dans une fenêtre de navigateur factice. */
+function Screenshot({ src, alt }) {
+  return (
+    <figure className="mt-6 mb-5 max-w-2xl rounded-2xl overflow-hidden border border-border shadow-card bg-card">
+      <div className="bg-muted px-4 py-2.5 flex items-center gap-1.5 border-b border-border" aria-hidden="true">
+        <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+        <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+      </div>
+      {/* Dimensions fixées (1200×750) : pas de saut de mise en page au chargement */}
+      <img src={src} alt={alt} width={1200} height={750} loading="lazy" decoding="async" className="w-full h-auto block" />
+    </figure>
+  )
+}
 
 /* ── Rendu ─────────────────────────────────────────────────── */
 export default function Guide() {
@@ -185,7 +208,7 @@ export default function Guide() {
 
         {/* ── Étapes ── */}
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          {SECTIONS.map(({ id, icon: Icon, title, intro, steps, tip }, i) => (
+          {SECTIONS.map(({ id, icon: Icon, title, intro, steps, tip, shot }, i) => (
             <section key={id} id={id} className="relative sm:pl-24 pb-12 sm:pb-16 scroll-mt-24">
 
               {/* Rail : icône numérotée + ligne verticale (masqué sur mobile) */}
@@ -207,6 +230,8 @@ export default function Guide() {
                   {title}
                 </h2>
                 <p className="text-muted-foreground text-sm sm:text-base leading-relaxed mb-5 max-w-2xl">{intro}</p>
+
+                {shot && <Screenshot src={shot.src} alt={shot.alt} />}
 
                 <ol className="space-y-3 mb-5">
                   {steps.map((step, j) => (
