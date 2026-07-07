@@ -2,6 +2,7 @@ import { useState, useId } from 'react'
 import { useNavigate, Link } from 'react-router'
 import { LogIn } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useCaptcha } from '../../components/Turnstile'
 import { IconBadge } from '../../components/ui/IconBadge'
 import { FormField } from '../../components/ui/FormField'
 import { Button } from '../../components/ui/Button'
@@ -13,15 +14,17 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const { captcha, captchaToken, captchaReady, resetCaptcha } = useCaptcha()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
     try {
-      await login(form)
+      await login({ ...form, captchaToken })
       navigate('/')
     } catch (err) {
+      resetCaptcha() // jeton à usage unique : on en redemande un pour le prochain essai
       // Supabase renvoie "Email not confirmed" si l'email n'est pas confirmé
       if (err.message?.toLowerCase().includes('email not confirmed')) {
         setError("Votre adresse email n'a pas encore été confirmée. Vérifiez votre boîte de réception.")
@@ -84,7 +87,9 @@ export default function Login() {
           </div>
         )}
 
-        <Button type="submit" loading={loading} className="w-full mt-2">
+        {captcha}
+
+        <Button type="submit" loading={loading} disabled={!captchaReady} className="w-full mt-2">
           {loading ? 'Connexion en cours…' : 'Se connecter'}
         </Button>
       </form>

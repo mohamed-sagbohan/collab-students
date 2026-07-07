@@ -41,8 +41,14 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const login = async ({ email, password }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  // captchaToken (optionnel) : jeton Turnstile exigé par Supabase quand la
+  // protection CAPTCHA est activée dans le dashboard — voir components/Turnstile.jsx.
+  const login = async ({ email, password, captchaToken }) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    })
     if (error) throw error
     await fetchProfile(data.user.id)
     return data.user
@@ -53,22 +59,24 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
-  const register = async ({ name, email, password }) => {
+  const register = async ({ name, email, password, captchaToken }) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { name },
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        captchaToken,
       },
     })
     if (error) throw error
     return data.user
   }
 
-  const sendPasswordReset = async (email) => {
+  const sendPasswordReset = async (email, captchaToken) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     })
     if (error) throw error
   }

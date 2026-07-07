@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useCaptcha } from '../../components/Turnstile'
 import { translateAuthError } from '../../lib/authErrors'
 import { IconBadge } from '../../components/ui/IconBadge'
 import { FormField } from '../../components/ui/FormField'
@@ -14,15 +15,17 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [sent, setSent] = useState(false)
+  const { captcha, captchaToken, captchaReady, resetCaptcha } = useCaptcha()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
     try {
-      await sendPasswordReset(email)
+      await sendPasswordReset(email, captchaToken)
       setSent(true)
     } catch (err) {
+      resetCaptcha()
       setError(translateAuthError(err, 'Une erreur est survenue. Réessayez.'))
     } finally {
       setLoading(false)
@@ -85,7 +88,9 @@ export default function ForgotPassword() {
           </div>
         )}
 
-        <Button type="submit" loading={loading} className="w-full">
+        {captcha}
+
+        <Button type="submit" loading={loading} disabled={!captchaReady} className="w-full">
           {loading ? 'Envoi en cours…' : 'Envoyer le lien de réinitialisation'}
         </Button>
       </form>

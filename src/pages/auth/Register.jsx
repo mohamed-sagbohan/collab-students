@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { CheckCircle, UserPlus } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useCaptcha } from '../../components/Turnstile'
 import { translateAuthError } from '../../lib/authErrors'
 import { IconBadge } from '../../components/ui/IconBadge'
 import { FormField } from '../../components/ui/FormField'
@@ -14,15 +15,17 @@ export default function Register() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const { captcha, captchaToken, captchaReady, resetCaptcha } = useCaptcha()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
     try {
-      await register(form)
+      await register({ ...form, captchaToken })
       setSuccess(true)
     } catch (err) {
+      resetCaptcha()
       setError(translateAuthError(err, "Erreur lors de l'inscription."))
     } finally {
       setLoading(false)
@@ -108,7 +111,9 @@ export default function Register() {
           </div>
         )}
 
-        <Button type="submit" loading={loading} className="w-full mt-2">
+        {captcha}
+
+        <Button type="submit" loading={loading} disabled={!captchaReady} className="w-full mt-2">
           {loading ? 'Création du compte...' : 'Créer mon compte gratuitement'}
         </Button>
       </form>
