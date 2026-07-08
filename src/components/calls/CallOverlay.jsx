@@ -45,7 +45,9 @@ export default function CallOverlay() {
   if (call.status === 'idle') return null
 
   const isVideo = call.callType === 'video'
-  const inCall = call.status === 'connecting' || call.status === 'active'
+  const inCall = call.status === 'connecting' || call.status === 'active' || call.status === 'reconnecting'
+  const connecting = call.status === 'connecting'
+  const reconnecting = call.status === 'reconnecting'
 
   return (
     <div
@@ -123,9 +125,11 @@ export default function CallOverlay() {
                 muted
                 className="absolute bottom-3 right-3 w-28 sm:w-36 aspect-video rounded-xl object-cover border-2 border-white/20 shadow-lg bg-neutral-800"
               />
-              {call.status === 'connecting' && (
+              {(connecting || reconnecting) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                  <p className="text-white text-sm font-medium">Connexion en cours…</p>
+                  <p className="text-white text-sm font-medium">
+                    {reconnecting ? 'Connexion instable, reconnexion…' : 'Connexion en cours…'}
+                  </p>
                 </div>
               )}
             </div>
@@ -134,7 +138,7 @@ export default function CallOverlay() {
               <Avatar name={call.peerName} className="w-28 h-28 text-4xl mx-auto mb-5" />
               <p className="text-lg font-bold text-white mb-1">{call.peerName}</p>
               <p className="text-sm text-white/60">
-                {call.status === 'connecting' ? 'Connexion en cours…' : formatDuration(duration)}
+                {connecting ? 'Connexion en cours…' : reconnecting ? 'Connexion instable, reconnexion…' : formatDuration(duration)}
               </p>
             </div>
           )}

@@ -27,9 +27,11 @@ export function useCallContext() {
   return useContext(CallContext)
 }
 
-const RING_TIMEOUT_MS = 45_000 // personne ne répond → l'appel expire côté appelant
-const OFFER_RETRY_MS = 1_500   // renvoi de l'offre tant qu'aucune réponse (absorbe l'éventuelle course d'abonnement au canal)
-const END_SCREEN_MS = 2_500    // durée d'affichage de l'écran « Appel terminé »
+const RING_TIMEOUT_MS = 45_000     // personne ne répond → l'appel expire côté appelant
+const OFFER_RETRY_MS = 1_500       // renvoi de l'offre tant qu'aucune réponse (absorbe l'éventuelle course d'abonnement au canal)
+const END_SCREEN_MS = 2_500        // durée d'affichage de l'écran « Appel terminé »
+const RECONNECT_GRACE_MS = 6_000   // coupure réseau transitoire (mobile…) : délai avant de tenter un redémarrage ICE
+const RECONNECT_GIVEUP_MS = 20_000 // au-delà, on abandonne et affiche l'échec (avec diagnostic)
 
 // Extrait le type ICE (host/srflx/relay) depuis la chaîne du candidat —
 // ni RTCIceCandidate.toJSON() ni la sérialisation broadcast ne portent
@@ -46,7 +48,7 @@ function diagSummary(session, pc) {
 }
 
 const initialState = {
-  status: 'idle', // idle | outgoing | incoming | connecting | active | ended | failed
+  status: 'idle', // idle | outgoing | incoming | connecting | active | reconnecting | ended | failed
   callId: null,
   conversationId: null,
   callType: null, // 'audio' | 'video'
@@ -76,18 +78,24 @@ export function CallProvider({ children }) {
     ringTimeout: null,
     offerRetry: null,
     durationTimer: null,
-    offerHandled: false,  // garde d'idempotence : une seule offre traitée par appel
-    answerHandled: false, // garde d'idempotence : une seule réponse traitée par appel
+    reconnectTimer: null, // grâce avant restartIce() après une coupure ('disconnected')
+    giveUpTimer: null,    // au-delà, on affiche l'échec même si l'état oscille encore
     diag: { localTypes: new Set(), remoteTypes: new Set(), remoteCount: 0 }, // diagnostic ICE, voir createPc
   }).current
 
   const callRef = useRef(call)
   callRef.current = call
 
+  // Indirection nécessaire : createPc (défini plus bas) référence
+  // attemptIceRestart, elle-même définie après createPc dans ce composant.
+  const attemptIceRestartRef = useRef(null)
+
   const resetSession = useCallback(() => {
     clearTimeout(session.ringTimeout)
     clearInterval(session.offerRetry)
     clearInterval(session.durationTimer)
+    clearTimeout(session.reconnectTimer)
+    clearTimeout(session.giveUpTimer)
     session.pc?.close()
     session.pc = null
     if (session.channel) {
@@ -97,8 +105,6 @@ export function CallProvider({ children }) {
     stopStream(session.localStream)
     session.localStream = null
     session.pendingIce = []
-    session.offerHandled = false
-    session.answerHandled = false
     session.diag = { localTypes: new Set(), remoteTypes: new Set(), remoteCount: 0 }
     setLocalStream(null)
     setRemoteStream(null)
@@ -143,12 +149,41 @@ export function CallProvider({ children }) {
     pc.ontrack = (e) => setRemoteStream(e.streams[0])
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
-        setCall((c) => (c.status === 'connecting' ? { ...c, status: 'active' } : c))
-      } else if (pc.connectionState === 'failed') {
-        // Résumé technique visible directement dans l'écran d'échec (pas
-        // besoin des outils développeur) : quels types de candidats ont
-        // été générés/reçus de chaque côté, pour diagnostiquer à distance.
+        clearTimeout(session.reconnectTimer)
+        clearTimeout(session.giveUpTimer)
+        session.reconnectTimer = null
+        session.giveUpTimer = null
+        setCall((c) => (c.status === 'connecting' || c.status === 'reconnecting' ? { ...c, status: 'active' } : c))
+      } else if (pc.connectionState === 'failed' && !session.giveUpTimer) {
+        // 'failed' direct sans être passé par une coupure détectée (rare,
+        // surtout au tout début de la négociation) : pas de délai de grâce
+        // à attendre, l'échec est immédiat.
         endWithStatus('failed', `Impossible d’établir la connexion. Réessayez, ou changez de réseau.\n${diagSummary(session, pc)}`)
+      }
+    }
+    // Coupure réseau transitoire (changement de tour mobile, Wi-Fi
+    // instable…) : 'disconnected' précède presque toujours 'failed', mais
+    // se rétablit très souvent tout seul en quelques secondes. On laisse
+    // une chance de reconnexion (UI dédiée) avant de tenter un
+    // redémarrage ICE actif, puis d'abandonner si rien ne marche.
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState
+      if (state === 'connected' || state === 'completed') {
+        clearTimeout(session.reconnectTimer)
+        clearTimeout(session.giveUpTimer)
+        session.reconnectTimer = null
+        session.giveUpTimer = null
+        return
+      }
+      if (state === 'disconnected' && !session.reconnectTimer) {
+        setCall((c) => (c.status === 'active' || c.status === 'connecting' ? { ...c, status: 'reconnecting' } : c))
+        session.reconnectTimer = setTimeout(() => {
+          session.reconnectTimer = null
+          attemptIceRestartRef.current?.(callId)
+        }, RECONNECT_GRACE_MS)
+        session.giveUpTimer ??= setTimeout(() => {
+          endWithStatus('failed', `Impossible d’établir la connexion. Réessayez, ou changez de réseau.\n${diagSummary(session, pc)}`)
+        }, RECONNECT_GIVEUP_MS)
       }
     }
     session.localStream?.getTracks().forEach((track) => {
@@ -174,13 +209,14 @@ export function CallProvider({ children }) {
 
     // Côté appelé : reçoit l'offre, répond. L'offre est RENVOYÉE
     // périodiquement par l'appelant tant qu'aucune réponse n'est reçue
-    // (absorbe une éventuelle course d'abonnement) — sans le garde
-    // `offerHandled`, une retransmission traitée deux fois générerait
-    // une seconde réponse, que l'appelant recevrait alors que sa
-    // connexion est déjà stable (setRemoteDescription y échoue).
+    // (absorbe une éventuelle course d'abonnement), et une NOUVELLE offre
+    // arrive aussi lors d'un redémarrage ICE après coupure (voir
+    // attemptIceRestart) — dans les deux cas, une offre n'est valide à
+    // traiter QUE depuis l'état 'stable' (source de vérité JSEP native,
+    // contrairement à un simple booléen qui bloquerait aussi les
+    // renégociations légitimes).
     channel.on('broadcast', { event: 'call-offer' }, async ({ payload }) => {
-      if (payload.callId !== callId || isCaller || !session.pc || session.offerHandled) return
-      session.offerHandled = true
+      if (payload.callId !== callId || isCaller || !session.pc || session.pc.signalingState !== 'stable') return
       await session.pc.setRemoteDescription(payload.sdp)
       for (const c of session.pendingIce) await session.pc.addIceCandidate(c)
       session.pendingIce = []
@@ -189,12 +225,12 @@ export function CallProvider({ children }) {
       channel.send({ type: 'broadcast', event: 'call-answer', payload: { callId, sdp: answer } })
     })
 
-    // Côté appelant : reçoit la réponse — idem, une seule à traiter
-    // même si l'offre (et donc potentiellement la réponse) a circulé
-    // plusieurs fois avant que le renvoi ne soit arrêté.
+    // Côté appelant : reçoit la réponse — une réponse n'est valide que
+    // depuis 'have-local-offer' (offre initiale OU redémarrage ICE en
+    // cours) ; un doublon de retry arrivant après coup est ignoré car
+    // l'état sera déjà repassé à 'stable'.
     channel.on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
-      if (payload.callId !== callId || !isCaller || !session.pc || session.answerHandled) return
-      session.answerHandled = true
+      if (payload.callId !== callId || !isCaller || !session.pc || session.pc.signalingState !== 'have-local-offer') return
       clearInterval(session.offerRetry)
       await session.pc.setRemoteDescription(payload.sdp)
       for (const c of session.pendingIce) await session.pc.addIceCandidate(c)
@@ -238,6 +274,29 @@ export function CallProvider({ children }) {
       endWithStatus('failed', mediaErrorMessage(err))
     }
   }, [session, createPc, endWithStatus])
+
+  /* ── Reconnexion après coupure transitoire (mobile, Wi-Fi instable…) ──
+     Seul l'appelant redémarre ICE (règle WebRTC : c'est toujours celui
+     qui a l'offre qui renégocie) ; l'appelé reçoit la nouvelle offre via
+     le handler 'call-offer' déjà branché, comme pour l'offre initiale. */
+  const attemptIceRestart = useCallback(async (callId) => {
+    const pc = session.pc
+    if (!pc || !callRef.current.isCaller) return
+    const state = pc.iceConnectionState
+    if (state === 'connected' || state === 'completed') return // rétabli entre-temps
+    try {
+      const offer = await pc.createOffer({ iceRestart: true })
+      await pc.setLocalDescription(offer)
+      const send = () => session.channel?.send({ type: 'broadcast', event: 'call-offer', payload: { callId, sdp: offer } })
+      send()
+      clearInterval(session.offerRetry)
+      session.offerRetry = setInterval(send, OFFER_RETRY_MS)
+    } catch {
+      // Le giveUpTimer (déjà armé au moment de la coupure) prendra le
+      // relais si la connexion ne se rétablit toujours pas.
+    }
+  }, [session])
+  attemptIceRestartRef.current = attemptIceRestart
 
   /* ── Écoute globale du cycle de vie (table calls) ────────────────
      Toujours active tant que l'utilisateur est connecté : c'est elle
