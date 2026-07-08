@@ -31,18 +31,16 @@ export async function getIceServers() {
   }
 }
 
-// Résolution/débit volontairement modestes : un appel de support n'a pas
-// besoin de HD, et une vidéo plus légère passe bien mieux sur les
-// connexions à faible débit montant (mobile, ADSL) — voir MAX_VIDEO_BITRATE_BPS,
-// appliqué au sender vidéo dans CallProvider.createPc.
-export const MAX_VIDEO_BITRATE_BPS = 250_000
-
+// Qualité HD standard, débit laissé au navigateur (WebRTC adapte déjà
+// dynamiquement le débit à la bande passante réelle en cours d'appel).
+// Une résolution plus basse avait été essayée pour fiabiliser les appels
+// sur réseau mobile instable, mais la vraie cause des échecs était une
+// coupure réseau transitoire, résolue par la reconnexion automatique
+// (voir CallProvider — pc.oniceconnectionstatechange) : pas la vidéo.
 export async function getLocalMedia(callType) {
   return navigator.mediaDevices.getUserMedia({
     audio: true,
-    video: callType === 'video'
-      ? { width: { ideal: 320, max: 480 }, height: { ideal: 240, max: 360 }, frameRate: { ideal: 15, max: 20 } }
-      : false,
+    video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
   })
 }
 
