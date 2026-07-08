@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { getIceServers, getLocalMedia, stopStream, mediaErrorMessage } from '../../lib/webrtc'
+import { getIceServers, getLocalMedia, stopStream, mediaErrorMessage, MAX_VIDEO_BITRATE_BPS } from '../../lib/webrtc'
 import CallOverlay from './CallOverlay'
 
 /**
@@ -125,7 +125,18 @@ export function CallProvider({ children }) {
         endWithStatus('failed', 'Impossible d’établir la connexion. Réessayez, ou changez de réseau.')
       }
     }
-    session.localStream?.getTracks().forEach((track) => pc.addTrack(track, session.localStream))
+    session.localStream?.getTracks().forEach((track) => {
+      const sender = pc.addTrack(track, session.localStream)
+      if (track.kind === 'video') {
+        // Plafonne le débit vidéo émis : plus robuste sur une connexion à
+        // faible débit montant (mobile, ADSL) que la qualité par défaut du
+        // navigateur, qui vise plutôt une belle image sur bon réseau.
+        const params = sender.getParameters()
+        params.encodings = params.encodings?.length ? params.encodings : [{}]
+        params.encodings[0].maxBitrate = MAX_VIDEO_BITRATE_BPS
+        sender.setParameters(params).catch(() => {}) // best-effort : ignoré si non supporté
+      }
+    })
     session.pc = pc
     return pc
   }, [session, user?.id, endWithStatus])

@@ -31,10 +31,18 @@ export async function getIceServers() {
   }
 }
 
+// Résolution/débit volontairement modestes : un appel de support n'a pas
+// besoin de HD, et une vidéo plus légère passe bien mieux sur les
+// connexions à faible débit montant (mobile, ADSL) — voir MAX_VIDEO_BITRATE_BPS,
+// appliqué au sender vidéo dans CallProvider.createPc.
+export const MAX_VIDEO_BITRATE_BPS = 250_000
+
 export async function getLocalMedia(callType) {
   return navigator.mediaDevices.getUserMedia({
     audio: true,
-    video: callType === 'video' ? { width: { ideal: 640 }, height: { ideal: 480 } } : false,
+    video: callType === 'video'
+      ? { width: { ideal: 320, max: 480 }, height: { ideal: 240, max: 360 }, frameRate: { ideal: 15, max: 20 } }
+      : false,
   })
 }
 
