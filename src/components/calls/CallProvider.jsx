@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { ICE_SERVERS, getLocalMedia, stopStream, mediaErrorMessage } from '../../lib/webrtc'
+import { getIceServers, getLocalMedia, stopStream, mediaErrorMessage } from '../../lib/webrtc'
 import CallOverlay from './CallOverlay'
 
 /**
@@ -57,6 +57,7 @@ export function CallProvider({ children }) {
     pc: null,
     channel: null,
     localStream: null,
+    iceServers: null,     // STUN + relais TURN, récupérés au début de chaque appel
     pendingIce: [],
     ringTimeout: null,
     offerRetry: null,
@@ -104,7 +105,9 @@ export function CallProvider({ children }) {
 
   /* ── Connexion pair-à-pair ──────────────────────────────────── */
   const createPc = useCallback((callId) => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+    // Récupérés en amont (startCall/acceptCall), en parallèle de l'accès
+    // au micro/caméra — jamais d'attente supplémentaire à cette étape.
+    const pc = new RTCPeerConnection({ iceServers: session.iceServers })
     pc.onicecandidate = (e) => {
       if (e.candidate) {
         session.channel?.send({
@@ -263,8 +266,11 @@ export function CallProvider({ children }) {
     if (callRef.current.status !== 'idle') return
     setCall({ ...initialState, status: 'outgoing', conversationId, callType, peerName, isCaller: true })
     try {
-      const stream = await getLocalMedia(callType)
+      // En parallèle : le relais TURN n'est nécessaire qu'à la création
+      // de la connexion pair-à-pair (proceedAsCaller), largement après.
+      const [stream, iceServers] = await Promise.all([getLocalMedia(callType), getIceServers()])
       session.localStream = stream
+      session.iceServers = iceServers
       setLocalStream(stream)
 
       const { data: row, error } = await supabase
@@ -306,8 +312,9 @@ export function CallProvider({ children }) {
       }
       accepted = true
 
-      const stream = await getLocalMedia(incoming.callType)
+      const [stream, iceServers] = await Promise.all([getLocalMedia(incoming.callType), getIceServers()])
       session.localStream = stream
+      session.iceServers = iceServers
       setLocalStream(stream)
 
       joinSignaling(incoming.conversationId, incoming.callId, { isCaller: false })
