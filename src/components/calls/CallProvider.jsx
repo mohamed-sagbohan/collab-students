@@ -31,6 +31,20 @@ const RING_TIMEOUT_MS = 45_000 // personne ne répond → l'appel expire côté 
 const OFFER_RETRY_MS = 1_500   // renvoi de l'offre tant qu'aucune réponse (absorbe l'éventuelle course d'abonnement au canal)
 const END_SCREEN_MS = 2_500    // durée d'affichage de l'écran « Appel terminé »
 
+// Extrait le type ICE (host/srflx/relay) depuis la chaîne du candidat —
+// ni RTCIceCandidate.toJSON() ni la sérialisation broadcast ne portent
+// la propriété .type calculée par le navigateur, il faut la reparser.
+function candidateType(candidateInit) {
+  return /\btyp (\w+)/.exec(candidateInit?.candidate ?? '')?.[1] ?? 'inconnu'
+}
+
+function diagSummary(session, pc) {
+  const local = [...session.diag.localTypes].join(', ') || 'aucun'
+  const remote = [...session.diag.remoteTypes].join(', ') || 'aucun'
+  return `[diag] ICE=${pc?.iceConnectionState ?? '?'} gathering=${pc?.iceGatheringState ?? '?'} `
+    + `local=${local} distant=${remote} (${session.diag.remoteCount} reçus)`
+}
+
 const initialState = {
   status: 'idle', // idle | outgoing | incoming | connecting | active | ended | failed
   callId: null,
@@ -64,6 +78,7 @@ export function CallProvider({ children }) {
     durationTimer: null,
     offerHandled: false,  // garde d'idempotence : une seule offre traitée par appel
     answerHandled: false, // garde d'idempotence : une seule réponse traitée par appel
+    diag: { localTypes: new Set(), remoteTypes: new Set(), remoteCount: 0 }, // diagnostic ICE, voir createPc
   }).current
 
   const callRef = useRef(call)
@@ -84,6 +99,7 @@ export function CallProvider({ children }) {
     session.pendingIce = []
     session.offerHandled = false
     session.answerHandled = false
+    session.diag = { localTypes: new Set(), remoteTypes: new Set(), remoteCount: 0 }
     setLocalStream(null)
     setRemoteStream(null)
     setMuted(false)
@@ -92,7 +108,9 @@ export function CallProvider({ children }) {
   }, [session])
 
   /** Termine la session courante. `status` null = retour direct à idle
-      (refus, course perdue) ; sinon un bref écran de fin s'affiche. */
+      (refus, course perdue) ; sinon un bref écran de fin s'affiche —
+      sauf en échec, où l'écran reste (diagnostic à lire/capturer) jusqu'à
+      fermeture manuelle (dismissCall). */
   const endWithStatus = useCallback((status, error = null) => {
     resetSession()
     if (!status || status === 'idle') {
@@ -100,8 +118,12 @@ export function CallProvider({ children }) {
       return
     }
     setCall((c) => ({ ...c, status, error }))
-    setTimeout(() => setCall(initialState), END_SCREEN_MS)
+    if (status !== 'failed') {
+      setTimeout(() => setCall(initialState), END_SCREEN_MS)
+    }
   }, [resetSession])
+
+  const dismissCall = useCallback(() => setCall(initialState), [])
 
   /* ── Connexion pair-à-pair ──────────────────────────────────── */
   const createPc = useCallback((callId) => {
@@ -110,6 +132,7 @@ export function CallProvider({ children }) {
     const pc = new RTCPeerConnection({ iceServers: session.iceServers })
     pc.onicecandidate = (e) => {
       if (e.candidate) {
+        session.diag.localTypes.add(candidateType(e.candidate))
         session.channel?.send({
           type: 'broadcast',
           event: 'call-ice',
@@ -122,7 +145,10 @@ export function CallProvider({ children }) {
       if (pc.connectionState === 'connected') {
         setCall((c) => (c.status === 'connecting' ? { ...c, status: 'active' } : c))
       } else if (pc.connectionState === 'failed') {
-        endWithStatus('failed', 'Impossible d’établir la connexion. Réessayez, ou changez de réseau.')
+        // Résumé technique visible directement dans l'écran d'échec (pas
+        // besoin des outils développeur) : quels types de candidats ont
+        // été générés/reçus de chaque côté, pour diagnostiquer à distance.
+        endWithStatus('failed', `Impossible d’établir la connexion. Réessayez, ou changez de réseau.\n${diagSummary(session, pc)}`)
       }
     }
     session.localStream?.getTracks().forEach((track) => {
@@ -179,6 +205,8 @@ export function CallProvider({ children }) {
     // distante n'est pas encore posée — race normale en WebRTC).
     channel.on('broadcast', { event: 'call-ice' }, async ({ payload }) => {
       if (payload.callId !== callId || payload.from === user.id || !session.pc) return
+      session.diag.remoteTypes.add(candidateType(payload.candidate))
+      session.diag.remoteCount += 1
       if (session.pc.remoteDescription) await session.pc.addIceCandidate(payload.candidate)
       else session.pendingIce.push(payload.candidate)
     })
@@ -386,8 +414,8 @@ export function CallProvider({ children }) {
 
   const api = useMemo(() => ({
     call, localStream, remoteStream, muted, cameraOff, duration,
-    startCall, acceptCall, declineCall, cancelCall, hangUp, toggleMute, toggleCamera,
-  }), [call, localStream, remoteStream, muted, cameraOff, duration, startCall, acceptCall, declineCall, cancelCall, hangUp, toggleMute, toggleCamera])
+    startCall, acceptCall, declineCall, cancelCall, hangUp, toggleMute, toggleCamera, dismissCall,
+  }), [call, localStream, remoteStream, muted, cameraOff, duration, startCall, acceptCall, declineCall, cancelCall, hangUp, toggleMute, toggleCamera, dismissCall])
 
   return (
     <CallContext.Provider value={api}>

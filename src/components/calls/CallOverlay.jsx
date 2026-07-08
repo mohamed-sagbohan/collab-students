@@ -21,8 +21,13 @@ const CONTROL_ON = 'bg-white/10 text-white hover:bg-white/20'
 export default function CallOverlay() {
   const {
     call, localStream, remoteStream, muted, cameraOff, duration,
-    acceptCall, declineCall, cancelCall, hangUp, toggleMute, toggleCamera,
+    acceptCall, declineCall, cancelCall, hangUp, toggleMute, toggleCamera, dismissCall,
   } = useCallContext()
+
+  // Le diagnostic technique ([diag] ICE=... local=... distant=...) est
+  // concaténé au message convivial sur une seconde ligne — on les sépare
+  // pour les afficher différemment (le diagnostic en police monospace).
+  const [errorMessage, diagLine] = (call.error ?? '').split('\n')
 
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
@@ -180,7 +185,21 @@ export default function CallOverlay() {
           <p className="font-bold text-white mb-1">
             {call.status === 'failed' ? 'Appel échoué' : 'Appel terminé'}
           </p>
-          {call.error && <p className="text-sm text-white/60 max-w-xs mx-auto">{call.error}</p>}
+          {errorMessage && <p className="text-sm text-white/60 max-w-xs mx-auto">{errorMessage}</p>}
+          {diagLine && (
+            <p className="text-xs text-white/40 max-w-sm mx-auto mt-3 font-mono break-words select-text">
+              {diagLine}
+            </p>
+          )}
+          {call.status === 'failed' && (
+            <button
+              type="button"
+              onClick={dismissCall}
+              className="mt-6 px-5 py-2 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
+            >
+              Fermer
+            </button>
+          )}
         </div>
       )}
     </div>
