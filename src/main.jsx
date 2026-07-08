@@ -7,6 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import { ToastProvider } from './components/ui/Toast'
+import { CallProvider } from './components/calls/CallProvider'
 import { router } from './routes'
 import './index.css'
 
@@ -23,7 +24,11 @@ createRoot(document.getElementById('root')).render(
         <AuthProvider>
           <ConfirmProvider>
             <ToastProvider>
-              <RouterProvider router={router} />
+              {/* Au-dessus du routeur : un appel entrant doit sonner quelle
+                  que soit la page (tableau de bord, leçon, éditeur…). */}
+              <CallProvider>
+                <RouterProvider router={router} />
+              </CallProvider>
             </ToastProvider>
           </ConfirmProvider>
         </AuthProvider>

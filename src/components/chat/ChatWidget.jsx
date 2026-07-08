@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, X } from 'lucide-react'
+import { MessageCircle, X, Phone, Video } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../ui/Toast'
+import { useCallContext } from '../calls/CallProvider'
 import ChatThread from './ChatThread'
 import {
   useMyConversation,
@@ -114,6 +115,9 @@ function ChatWidgetInner() {
     () => [...online.values()].some((m) => m.role === 'staff'),
     [online]
   )
+
+  const { call: activeCall, startCall } = useCallContext()
+  const canCall = staffOnline && activeCall.status === 'idle' && !!conversationId
 
   // Les messages ne sont chargés qu'à partir de la première ouverture.
   const { messages, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useChatMessages(
@@ -264,6 +268,26 @@ function ChatWidgetInner() {
                 {staffOnline ? 'Un membre de l’équipe est en ligne' : 'Nous vous répondrons dès que possible'}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => startCall({ conversationId, callType: 'audio', peerName: 'Support LearnIT' })}
+              disabled={!canCall}
+              aria-label="Appel audio avec le support"
+              title={staffOnline ? 'Appel audio' : 'Aucun membre de l’équipe en ligne'}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <Phone className="w-4 h-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => startCall({ conversationId, callType: 'video', peerName: 'Support LearnIT' })}
+              disabled={!canCall}
+              aria-label="Appel vidéo avec le support"
+              title={staffOnline ? 'Appel vidéo' : 'Aucun membre de l’équipe en ligne'}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+            >
+              <Video className="w-4 h-4" aria-hidden="true" />
+            </button>
             <button
               type="button"
               onClick={closeChat}

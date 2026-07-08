@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, Search, ArrowLeft, SquarePen, Archive, ArchiveRestore, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MessageCircle, Search, ArrowLeft, SquarePen, Archive, ArchiveRestore, ChevronLeft, ChevronRight, Phone, Video } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { cn } from '../../lib/utils'
+import { useCallContext } from '../../components/calls/CallProvider'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Skeleton } from '../../components/Skeleton'
@@ -90,6 +91,7 @@ export default function Messaging() {
   const { data: students = [], isLoading: loadingStudents } = useStudentsDirectory(newMsgOpen)
   const startConversation = useStartConversation()
   const setArchived = useSetConversationArchived()
+  const { call: activeCall, startCall } = useCallContext()
 
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase()
@@ -430,6 +432,26 @@ export default function Messaging() {
                       Archivée
                     </StatusBadge>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => startCall({ conversationId: active.id, callType: 'audio', peerName: active.student_name })}
+                    disabled={activeCall.status !== 'idle' || !active.online}
+                    aria-label={`Appel audio avec ${active.student_name}`}
+                    title={active.online ? 'Appel audio' : 'Apprenante hors ligne'}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    <Phone className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startCall({ conversationId: active.id, callType: 'video', peerName: active.student_name })}
+                    disabled={activeCall.status !== 'idle' || !active.online}
+                    aria-label={`Appel vidéo avec ${active.student_name}`}
+                    title={active.online ? 'Appel vidéo' : 'Apprenante hors ligne'}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    <Video className="w-4 h-4" aria-hidden="true" />
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleArchive(active)}
