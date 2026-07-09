@@ -1,0 +1,9 @@
+# Déclare uniquement ce qui doit dévier du comportement par défaut.
+# get-turn-credentials et delete-user restent en JWT requis (défaut,
+# non déclarés ici) — inchangés par ce fichier.
+
+[functions.reengagement-emails]
+# Déclenchée par pg_cron (aucun JWT utilisateur) : l'authentification
+# se fait via l'en-tête x-cron-secret vérifié dans le code de la
+# fonction, pas par le JWT Supabase standard.
+verify_jwt = false
