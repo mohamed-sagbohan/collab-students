@@ -14,6 +14,7 @@ import {
   REACTION_EMOJIS,
 } from '../../hooks/useChat'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
+import CallLogEntry from './CallLogEntry'
 
 /**
  * Fil de discussion partagé entre le widget apprenante et la page
@@ -794,6 +795,7 @@ export default function ChatThread({
   emptyTitle = 'Aucun message pour l’instant',
   emptyDescription = 'Écrivez votre premier message ci-dessous.',
   composerPlaceholder,
+  onCallBack,
 }) {
   const confirm = useConfirm()
   const containerRef = useRef(null)
@@ -935,7 +937,7 @@ export default function ChatThread({
       setNewBelow(true)
     }
     if (incoming) {
-      setAnnounce(`Nouveau message de ${last.profiles?.name ?? "l'équipe"}`)
+      setAnnounce(last.kind === 'call' ? 'Nouvel appel' : `Nouveau message de ${last.profiles?.name ?? "l'équipe"}`)
     }
   }, [messages, currentUserId])
 
@@ -995,26 +997,30 @@ export default function ChatThread({
                       {dayLabel(message.created_at)}
                     </p>
                   )}
-                  <MessageBubble
-                    message={message}
-                    mine={message.sender_id === currentUserId}
-                    seen={message.id === lastSeenOwnId}
-                    currentUserId={currentUserId}
-                    showSenderInfo={showSenderInfo}
-                    onToggleReaction={onToggleReaction}
-                    onOpenLightbox={setLightboxUrl}
-                    onQuoteClick={scrollToQuoted}
-                    flash={flashId === message.id}
-                    onRequestDelete={onDelete ? requestDelete : undefined}
-                    onRequestReply={requestReply}
-                    onRequestEdit={onEdit ? (m) => setEditing({ id: m.id, text: m.body }) : undefined}
-                    isEditing={editing?.id === message.id}
-                    editText={editing?.id === message.id ? editing.text : ''}
-                    onEditTextChange={(text) => setEditing((e) => (e ? { ...e, text } : e))}
-                    onSaveEdit={saveEdit}
-                    onCancelEdit={() => setEditing(null)}
-                    savingEdit={savingEdit}
-                  />
+                  {message.kind === 'call' ? (
+                    <CallLogEntry call={message} currentUserId={currentUserId} onCallBack={onCallBack} />
+                  ) : (
+                    <MessageBubble
+                      message={message}
+                      mine={message.sender_id === currentUserId}
+                      seen={message.id === lastSeenOwnId}
+                      currentUserId={currentUserId}
+                      showSenderInfo={showSenderInfo}
+                      onToggleReaction={onToggleReaction}
+                      onOpenLightbox={setLightboxUrl}
+                      onQuoteClick={scrollToQuoted}
+                      flash={flashId === message.id}
+                      onRequestDelete={onDelete ? requestDelete : undefined}
+                      onRequestReply={requestReply}
+                      onRequestEdit={onEdit ? (m) => setEditing({ id: m.id, text: m.body }) : undefined}
+                      isEditing={editing?.id === message.id}
+                      editText={editing?.id === message.id ? editing.text : ''}
+                      onEditTextChange={(text) => setEditing((e) => (e ? { ...e, text } : e))}
+                      onSaveEdit={saveEdit}
+                      onCancelEdit={() => setEditing(null)}
+                      savingEdit={savingEdit}
+                    />
+                  )}
                 </li>
               )
             })}

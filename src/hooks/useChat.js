@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { compressImage } from '../lib/imageCompression'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../components/ui/Toast'
+import { appendCallToCache, updateCallInCache } from './useCalls'
 
 /**
  * Logique partagée du chat de support (apprenante ↔ staff).
@@ -475,7 +476,7 @@ export function useConversationReads(conversationId) {
 
 /* ── Canal de conversation : nouveaux messages + « en train d'écrire » ── */
 
-export function useConversationChannel({ conversationId, withPostgres = false, onInsert }) {
+export function useConversationChannel({ conversationId, withPostgres = false, withCalls = false, onInsert }) {
   const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const [peerTyping, setPeerTyping] = useState(null) // { name } | null
@@ -544,6 +545,25 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
       )
     }
 
+    // Appels (migration 034+) : même topic que la signalisation WebRTC
+    // (CallProvider.joinSignaling ouvre sa propre instance de canal sur ce
+    // topic pendant un appel actif — plusieurs souscriptions au même topic
+    // coexistent sans problème côté Supabase Realtime). Alimente le fil
+    // fusionné messages+appels (useCalls.mergeChatFeed) uniquement si le
+    // widget/onglet a déjà chargé ['calls', conversationId] en cache.
+    if (withCalls) {
+      channel.on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'calls', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => appendCallToCache(queryClient, conversationId, payload.new)
+      )
+      channel.on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'calls', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => updateCallInCache(queryClient, conversationId, payload.new.id, payload.new)
+      )
+    }
+
     // Curseurs de lecture (migration 024) : l'upsert de l'autre participant
     // arrive en INSERT ou UPDATE — dans les deux cas on rafraîchit le « Vu ».
     channel.on(
@@ -592,7 +612,7 @@ export function useConversationChannel({ conversationId, withPostgres = false, o
       channelRef.current = null
       supabase.removeChannel(channel)
     }
-  }, [conversationId, user?.id, withPostgres, queryClient]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, user?.id, withPostgres, withCalls, queryClient]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendTyping = useCallback(() => {
     const now = Date.now()

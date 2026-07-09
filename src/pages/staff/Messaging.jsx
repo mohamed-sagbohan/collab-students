@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { MessageCircle, Search, ArrowLeft, SquarePen, Archive, ArchiveRestore, ChevronLeft, ChevronRight, Phone, Video } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { cn } from '../../lib/utils'
+import { cn, timeAgo } from '../../lib/utils'
 import { useCallContext } from '../../components/calls/CallProvider'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -29,18 +29,7 @@ import {
   useConversationReads,
   useToggleReaction,
 } from '../../hooks/useChat'
-
-function timeAgo(dateStr) {
-  if (!dateStr) return ''
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'à l’instant'
-  if (m < 60) return `il y a ${m} min`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `il y a ${h}h`
-  const d = Math.floor(h / 24)
-  return `il y a ${d}j`
-}
+import { useConversationCalls, mergeChatFeed } from '../../hooks/useCalls'
 
 export default function Messaging() {
   const { user } = useAuth()
@@ -124,6 +113,8 @@ export default function Messaging() {
 
   const { messages, isLoading: loadingMessages, isError: errorMessages, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useChatMessages(activeId)
+  const { calls } = useConversationCalls(activeId)
+  const items = useMemo(() => mergeChatFeed(messages, calls), [messages, calls])
   const sendMessage = useSendMessage(activeId)
   const deleteMessage = useDeleteMessage(activeId)
   const editMessage = useEditMessage(activeId)
@@ -470,7 +461,7 @@ export default function Messaging() {
 
                 <ChatThread
                   key={active.id}
-                  messages={messages}
+                  messages={items}
                   isLoading={loadingMessages}
                   isError={errorMessages}
                   hasNextPage={hasNextPage}
@@ -488,6 +479,11 @@ export default function Messaging() {
                   peerTyping={peerTyping}
                   peerLastReadAt={peerLastReadAt}
                   showSenderInfo
+                  onCallBack={
+                    activeCall.status === 'idle' && active.online
+                      ? (callType) => startCall({ conversationId: active.id, callType, peerName: active.student_name })
+                      : undefined
+                  }
                   emptyTitle="Aucun message dans ce fil"
                   emptyDescription="Écrivez le premier message ci-dessous."
                   composerPlaceholder="Répondez à l'apprenant…"
