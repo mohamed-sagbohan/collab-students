@@ -138,11 +138,21 @@ export function CallProvider({ children }) {
     const pc = new RTCPeerConnection({ iceServers: session.iceServers })
     pc.onicecandidate = (e) => {
       if (e.candidate) {
-        session.diag.localTypes.add(candidateType(e.candidate))
+        const type = candidateType(e.candidate)
+        // Capturé maintenant : si l'appel se termine pendant l'aller-retour
+        // d'ack (ci-dessous), session.diag sera déjà celui du prochain
+        // appel — on ne doit pas le polluer avec un candidat de celui-ci.
+        const diag = session.diag
+        // N'entre dans le diagnostic qu'une fois l'envoi confirmé par le
+        // serveur realtime (ack) — la génération locale seule ne prouve
+        // pas que le candidat a bien quitté cet appareil (canal pas
+        // encore 'joined', etc.).
         session.channel?.send({
           type: 'broadcast',
           event: 'call-ice',
           payload: { callId, candidate: e.candidate, from: user.id },
+        }).then((status) => {
+          if (status === 'ok') diag.localTypes.add(type)
         })
       }
     }
@@ -154,18 +164,18 @@ export function CallProvider({ children }) {
         session.reconnectTimer = null
         session.giveUpTimer = null
         setCall((c) => (c.status === 'connecting' || c.status === 'reconnecting' ? { ...c, status: 'active' } : c))
-      } else if (pc.connectionState === 'failed' && !session.giveUpTimer) {
-        // 'failed' direct sans être passé par une coupure détectée (rare,
-        // surtout au tout début de la négociation) : pas de délai de grâce
-        // à attendre, l'échec est immédiat.
-        endWithStatus('failed', `Impossible d’établir la connexion. Réessayez, ou changez de réseau.\n${diagSummary(session, pc)}`)
       }
+      // L'échec est entièrement piloté par oniceconnectionstatechange
+      // ci-dessous (retry inclus) — pas de sortie immédiate ici, pour ne
+      // pas court-circuiter la tentative de redémarrage ICE.
     }
     // Coupure réseau transitoire (changement de tour mobile, Wi-Fi
     // instable…) : 'disconnected' précède presque toujours 'failed', mais
-    // se rétablit très souvent tout seul en quelques secondes. On laisse
+    // se rétablit très souvent tout seul en quelques secondes — on laisse
     // une chance de reconnexion (UI dédiée) avant de tenter un
-    // redémarrage ICE actif, puis d'abandonner si rien ne marche.
+    // redémarrage ICE actif. 'failed', lui, ne se rétablit jamais tout
+    // seul (y compris au tout premier essai, avant même d'être passé par
+    // 'disconnected') : on retente aussitôt, sans délai de grâce.
     pc.oniceconnectionstatechange = () => {
       const state = pc.iceConnectionState
       if (state === 'connected' || state === 'completed') {
@@ -175,12 +185,12 @@ export function CallProvider({ children }) {
         session.giveUpTimer = null
         return
       }
-      if (state === 'disconnected' && !session.reconnectTimer) {
+      if ((state === 'disconnected' || state === 'failed') && !session.reconnectTimer) {
         setCall((c) => (c.status === 'active' || c.status === 'connecting' ? { ...c, status: 'reconnecting' } : c))
         session.reconnectTimer = setTimeout(() => {
           session.reconnectTimer = null
           attemptIceRestartRef.current?.(callId)
-        }, RECONNECT_GRACE_MS)
+        }, state === 'failed' ? 0 : RECONNECT_GRACE_MS)
         session.giveUpTimer ??= setTimeout(() => {
           endWithStatus('failed', `Impossible d’établir la connexion. Réessayez, ou changez de réseau.\n${diagSummary(session, pc)}`)
         }, RECONNECT_GIVEUP_MS)
@@ -194,7 +204,11 @@ export function CallProvider({ children }) {
   /* ── Signalisation : rejoint le canal de la conversation (déjà
      autorisé pour l'apprenante propriétaire + tout le staff) ────── */
   const joinSignaling = useCallback((conversationId, callId, { isCaller }) => {
-    const channel = supabase.channel(`chat-conv-${conversationId}`, { config: { private: true } })
+    // broadcast.ack : nécessaire pour que channel.send() attende la
+    // confirmation serveur au lieu de résoudre en fire-and-forget — voir
+    // pc.onicecandidate ci-dessus (diagnostic ICE basé sur l'envoi
+    // confirmé, pas la simple génération locale).
+    const channel = supabase.channel(`chat-conv-${conversationId}`, { config: { private: true, broadcast: { ack: true } } })
 
     // Côté appelé : reçoit l'offre, répond. L'offre est RENVOYÉE
     // périodiquement par l'appelant tant qu'aucune réponse n'est reçue
