@@ -400,7 +400,7 @@ export function CallProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('calls')
-        .update({ status: 'accepted', callee_id: user.id, answered_at: new Date().toISOString() })
+        .update({ status: 'accepted', callee_id: user.id, callee_name: profile?.name, answered_at: new Date().toISOString() })
         .eq('id', incoming.callId)
         .eq('status', 'ringing')
         .select()
@@ -430,7 +430,7 @@ export function CallProvider({ children }) {
       }
       endWithStatus('failed', mediaErrorMessage(err))
     }
-  }, [user?.id, session, joinSignaling, createPc, endWithStatus])
+  }, [user?.id, profile?.name, session, joinSignaling, createPc, endWithStatus])
 
   const declineCall = useCallback(async () => {
     const incoming = callRef.current
