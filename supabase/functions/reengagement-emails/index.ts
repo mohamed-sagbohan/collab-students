@@ -129,12 +129,14 @@ async function sendReengagementEmails(): Promise<Response> {
         const unsubscribeUrl =
           `${functionsUrl}/functions/v1/reengagement-emails?uid=${student.user_id}&sig=${sig}`
 
+        // HTML volontairement sobre (pas de bouton coloré/CTA façon
+        // marketing) : signal moins "bulk mail" pour les filtres anti-spam
+        // — gain marginal avec un expéditeur Gmail perso, mais gratuit.
         const emailHtml = `
-          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-            <h1 style="font-size: 20px;">${copy.heading}</h1>
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #222;">
             <p>Bonjour ${student.name ?? ''},</p>
             <p>${copy.body}</p>
-            <p><a href="${appUrl}" style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;">Reprendre sur LearnIT</a></p>
+            <p>${appUrl}</p>
             <p style="font-size: 12px; color: #888; margin-top: 32px;">
               Vous recevez cet email car vous êtes inscrite sur LearnIT.
               <a href="${unsubscribeUrl}">Se désinscrire de ces rappels</a>.
