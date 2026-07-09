@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
-import { Bell, Award, MessageSquare, MessageCircle, BookOpen, CheckCheck } from 'lucide-react'
+import { Bell, Award, MessageSquare, MessageCircle, BookOpen, CheckCheck, PhoneMissed } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 const TYPE_ICON = {
-  badge:         { Icon: Award,         color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/20' },
-  comment_reply: { Icon: MessageSquare, color: 'text-info',    bg: 'bg-info/10',    border: 'border-info/20' },
-  new_course:    { Icon: BookOpen,      color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
-  chat_message:  { Icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20' },
+  badge:         { Icon: Award,         color: 'text-warning',     bg: 'bg-warning/10',     border: 'border-warning/20' },
+  comment_reply: { Icon: MessageSquare, color: 'text-info',        bg: 'bg-info/10',        border: 'border-info/20' },
+  new_course:    { Icon: BookOpen,      color: 'text-primary',     bg: 'bg-primary/10',     border: 'border-primary/20' },
+  chat_message:  { Icon: MessageCircle, color: 'text-primary',     bg: 'bg-primary/10',     border: 'border-primary/20' },
+  missed_call:   { Icon: PhoneMissed,   color: 'text-destructive', bg: 'bg-destructive/10', border: 'border-destructive/20' },
 }
 
 function timeAgo(dateStr) {

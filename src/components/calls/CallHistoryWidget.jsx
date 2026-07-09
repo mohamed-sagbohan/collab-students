@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Phone, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCallContext } from './CallProvider'
@@ -21,6 +22,18 @@ export default function CallHistoryWidget() {
 function CallHistoryWidgetInner() {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Deep-link ?appels=ouvert (lien de la notification « Appel manqué »,
+  // même pattern que ?chat=ouvert dans ChatWidget) — consommé puis retiré.
+  useEffect(() => {
+    if (searchParams.get('appels') === 'ouvert') {
+      setOpen(true)
+      const next = new URLSearchParams(searchParams)
+      next.delete('appels')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   // Passif : ne crée jamais la conversation (contrairement à ChatWidget) —
   // sans conversation, il n'y a de toute façon aucun appel à lister.
