@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { LayoutDashboard, BookOpen, Users, Activity, LogOut, GraduationCap, Menu, X, BarChart3, PenSquare, MessageCircle, KeyRound } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Users, Activity, LogOut, GraduationCap, Menu, X, BarChart3, PenSquare, MessageCircle, KeyRound, Phone } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { ThemeToggle } from '../components/ThemeToggle'
 import ChangePasswordDialog from '../components/ChangePasswordDialog'
@@ -9,11 +9,13 @@ import { NavItem } from '../components/ui/NavItem'
 import { Avatar } from '../components/ui/Avatar'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { useStaffUnreadTotal, useStaffChatRealtime } from '../hooks/useChat'
+import { useStaffCallsRealtime } from '../hooks/useCalls'
 
 const instructorLinks = [
   { to: '/formateur',            icon: LayoutDashboard, label: 'Tableau de bord' },
   { to: '/formateur/suivi',      icon: Activity,        label: 'Suivi en direct' },
   { to: '/formateur/messagerie', icon: MessageCircle,   label: 'Messagerie' },
+  { to: '/formateur/appels',     icon: Phone,           label: 'Historique des appels' },
   { to: '/formateur/editeur',    icon: PenSquare,       label: 'Mes cours' },
 ]
 
@@ -23,6 +25,7 @@ const adminLinks = [
   { to: '/admin/cours',       icon: BookOpen,        label: 'Cours' },
   { to: '/admin/suivi',       icon: Activity,        label: 'Suivi en direct' },
   { to: '/admin/messagerie',  icon: MessageCircle,   label: 'Messagerie' },
+  { to: '/admin/appels',      icon: Phone,           label: 'Historique des appels' },
   { to: '/admin/analytics',   icon: BarChart3,       label: 'Analytics' },
   { to: '/admin/editeur',     icon: PenSquare,       label: 'Éditeur' },
 ]
@@ -142,6 +145,7 @@ export default function AdminLayout() {
   // Canal realtime unique du chat côté staff (alimente le cache React Query,
   // aucun state React ici — pas de re-render du layout).
   useStaffChatRealtime()
+  useStaffCallsRealtime()
 
   useEffect(() => {
     const handler = () => { if (window.innerWidth >= 1024) setSidebarOpen(false) }

@@ -35,6 +35,7 @@ const CourseEditor          = lazy(() => import('../pages/shared/CourseEditor'))
 const CourseForm            = lazy(() => import('../pages/shared/CourseForm'))
 const LessonEditor          = lazy(() => import('../pages/shared/LessonEditor'))
 const Messaging             = lazy(() => import('../pages/staff/Messaging'))
+const CallHistory           = lazy(() => import('../pages/staff/CallHistory'))
 
 // eslint-disable-next-line react/no-multi-comp
 function page(Component) {
@@ -93,6 +94,7 @@ export const router = createBrowserRouter([
           { path: '/formateur', element: page(InstructorDashboard) },
           { path: '/formateur/suivi', element: page(InstructorLiveMonitor) },
           { path: '/formateur/messagerie', element: page(Messaging) },
+          { path: '/formateur/appels', element: page(CallHistory) },
           { path: '/formateur/editeur', element: page(CourseEditor) },
           { path: '/formateur/editeur/:courseId', element: page(CourseForm) },
           { path: '/formateur/editeur/:courseId/lecons/:lessonId', element: page(LessonEditor) },
@@ -113,6 +115,7 @@ export const router = createBrowserRouter([
           { path: '/admin/cours', element: page(AdminCourses) },
           { path: '/admin/suivi', element: page(InstructorLiveMonitor) },
           { path: '/admin/messagerie', element: page(Messaging) },
+          { path: '/admin/appels', element: page(CallHistory) },
           { path: '/admin/analytics', element: page(AdminAnalytics) },
           { path: '/admin/editeur', element: page(CourseEditor) },
           { path: '/admin/editeur/:courseId', element: page(CourseForm) },
