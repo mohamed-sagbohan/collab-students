@@ -77,11 +77,17 @@ export function updateCallInCache(queryClient, conversationId, callId, patch) {
   })
 }
 
+/** Un 'ringing' périmé (voir STALE_RINGING_MS ci-dessus) compte comme
+    manqué — utilisé par callStatusMeta et par le badge d'appels manqués. */
+export function isMissedCall(call) {
+  const stale = call.status === 'ringing' && Date.now() - new Date(call.started_at).getTime() > STALE_RINGING_MS
+  return stale || call.status === 'missed'
+}
+
 /** Statut affiché + variante de couleur — partagé entre
     CallHistoryList et la page staff. */
 export function callStatusMeta(call) {
-  const stale = call.status === 'ringing' && Date.now() - new Date(call.started_at).getTime() > STALE_RINGING_MS
-  const status = stale ? 'missed' : call.status
+  const status = isMissedCall(call) ? 'missed' : call.status
 
   switch (status) {
     case 'ringing':
@@ -140,6 +146,43 @@ export function useStaffCalls({ callType = null, status = null, search = '', pag
     isLoading: query.isLoading,
     isError: query.isError,
   }
+}
+
+// Nombre d'appels manqués récents remontés pour le badge — largement
+// suffisant en pratique (badge, pas un total exact), évite de paginer.
+const MISSED_BADGE_LIMIT = 100
+
+/** Badge « appels manqués » de la sidebar staff : nombre d'appels manqués
+    (initiés par une étudiante) survenus après `seenAt`. Pas de curseur
+    serveur dédié (contrairement à chat_reads) — `seenAt` est géré côté
+    appelant (AdminLayout, localStorage) pour éviter une nouvelle table
+    pour un simple indicateur. Se raccroche à la clé ['staff-calls'] :
+    invalidée automatiquement par useStaffCallsRealtime. */
+export function useStaffMissedCallsBadge(seenAt) {
+  const { profile } = useAuth()
+  const isStaff = profile?.role === 'formateur' || profile?.role === 'admin'
+
+  const query = useQuery({
+    queryKey: ['staff-calls', 'missed-badge'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_staff_calls', {
+        p_status: 'missed',
+        p_limit: MISSED_BADGE_LIMIT,
+        p_offset: 0,
+      })
+      if (error) throw error
+      return data?.calls ?? []
+    },
+    enabled: isStaff,
+    staleTime: 15_000,
+  })
+
+  // Seuls les appels initiés par une étudiante comptent comme « manqués »
+  // du point de vue du staff — un appel sortant du staff resté sans
+  // réponse n'est pas un appel que LE STAFF a manqué.
+  const missedFromStudents = (query.data ?? []).filter((c) => c.caller_is_student)
+  if (!seenAt) return missedFromStudents.length
+  return missedFromStudents.filter((c) => new Date(c.started_at) > new Date(seenAt)).length
 }
 
 /** À appeler UNE seule fois, au niveau d'AdminLayout — comme

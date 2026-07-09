@@ -9,7 +9,7 @@ import { NavItem } from '../components/ui/NavItem'
 import { Avatar } from '../components/ui/Avatar'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { useStaffUnreadTotal, useStaffChatRealtime } from '../hooks/useChat'
-import { useStaffCallsRealtime } from '../hooks/useCalls'
+import { useStaffCallsRealtime, useStaffMissedCallsBadge } from '../hooks/useCalls'
 
 const instructorLinks = [
   { to: '/formateur',            icon: LayoutDashboard, label: 'Tableau de bord' },
@@ -48,7 +48,7 @@ function LayoutBreadcrumb({ pathname, isAdmin }) {
   )
 }
 
-function SidebarContent({ profile, logout, onClose, onChangePassword }) {
+function SidebarContent({ profile, logout, onClose, onChangePassword, missedCallsBadge }) {
   const links = profile?.role === 'admin' ? adminLinks : instructorLinks
   // Badge de non-lus : compteur seul (p_limit 0), sans charger la liste.
   const chatUnread = useStaffUnreadTotal()
@@ -104,6 +104,13 @@ function SidebarContent({ profile, logout, onClose, onChangePassword }) {
                   >
                     {chatUnread > 9 ? '9+' : chatUnread}
                   </span>
+                ) : label === 'Historique des appels' && missedCallsBadge > 0 ? (
+                  <span
+                    className="ml-auto min-w-5 h-5 px-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center shrink-0"
+                    aria-label={`${missedCallsBadge} appel${missedCallsBadge > 1 ? 's' : ''} manqué${missedCallsBadge > 1 ? 's' : ''}`}
+                  >
+                    {missedCallsBadge > 9 ? '9+' : missedCallsBadge}
+                  </span>
                 ) : undefined
               }
             />
@@ -137,7 +144,7 @@ function SidebarContent({ profile, logout, onClose, onChangePassword }) {
 }
 
 export default function AdminLayout() {
-  const { profile, logout } = useAuth()
+  const { user, profile, logout } = useAuth()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
@@ -146,6 +153,21 @@ export default function AdminLayout() {
   // aucun state React ici — pas de re-render du layout).
   useStaffChatRealtime()
   useStaffCallsRealtime()
+
+  // Badge « appels manqués » : pas de curseur serveur dédié (voir
+  // useStaffMissedCallsBadge) — on retient juste la dernière visite de
+  // la page /appels, en localStorage, namespacé par utilisateur.
+  const callsSeenKey = user ? `calls-badge-seen:${user.id}` : null
+  const [callsSeenAt, setCallsSeenAt] = useState(() => (callsSeenKey ? localStorage.getItem(callsSeenKey) : null))
+  useEffect(() => {
+    if (!callsSeenKey) return
+    if (location.pathname === '/formateur/appels' || location.pathname === '/admin/appels') {
+      const now = new Date().toISOString()
+      localStorage.setItem(callsSeenKey, now)
+      setCallsSeenAt(now)
+    }
+  }, [location.pathname, callsSeenKey])
+  const missedCallsBadge = useStaffMissedCallsBadge(callsSeenAt)
 
   useEffect(() => {
     const handler = () => { if (window.innerWidth >= 1024) setSidebarOpen(false) }
@@ -171,7 +193,7 @@ export default function AdminLayout() {
 
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-64 min-h-screen bg-card border-r border-border flex-col shrink-0 fixed top-0 left-0 bottom-0 z-30">
-        <SidebarContent profile={profile} logout={logout} onChangePassword={() => setPwOpen(true)} />
+        <SidebarContent profile={profile} logout={logout} onChangePassword={() => setPwOpen(true)} missedCallsBadge={missedCallsBadge} />
       </aside>
 
       {/* Overlay mobile */}
@@ -190,6 +212,7 @@ export default function AdminLayout() {
           logout={logout}
           onClose={() => setSidebarOpen(false)}
           onChangePassword={() => setPwOpen(true)}
+          missedCallsBadge={missedCallsBadge}
         />
       </aside>
 

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Phone, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCallContext } from './CallProvider'
-import { useConversationCalls } from '../../hooks/useCalls'
+import { useConversationCalls, isMissedCall } from '../../hooks/useCalls'
 import { useMyConversation, useChatPresence, useConversationChannel } from '../../hooks/useChat'
 import CallHistoryList from './CallHistoryList'
 
@@ -25,9 +25,10 @@ function CallHistoryWidgetInner() {
   // Passif : ne crée jamais la conversation (contrairement à ChatWidget) —
   // sans conversation, il n'y a de toute façon aucun appel à lister.
   const { conversationId } = useMyConversation()
-  const { calls } = useConversationCalls(open ? conversationId : null)
-  // withCalls tient la liste à jour pendant que le panneau est ouvert —
-  // même topic que la signalisation WebRTC (voir useConversationChannel).
+  // Chargé même bouton fermé : nécessaire pour le badge d'appels manqués.
+  const { calls } = useConversationCalls(conversationId)
+  // withCalls tient la liste à jour en temps réel — même topic que la
+  // signalisation WebRTC (voir useConversationChannel).
   useConversationChannel({ conversationId, withCalls: true })
 
   const online = useChatPresence()
@@ -38,6 +39,20 @@ function CallHistoryWidgetInner() {
   const { call: activeCall, startCall } = useCallContext()
   const canCall = staffOnline && activeCall.status === 'idle' && !!conversationId
   const onCallBack = canCall ? (callType) => startCall({ conversationId, callType, peerName: 'Support LearnIT' }) : undefined
+
+  // Badge « appels manqués » : pas de curseur serveur dédié, juste la
+  // dernière ouverture du panneau (localStorage, namespacé par utilisateur).
+  const seenKey = `calls-badge-seen:${user.id}`
+  const [seenAt, setSeenAt] = useState(() => localStorage.getItem(seenKey))
+  useEffect(() => {
+    if (!open) return
+    const now = new Date().toISOString()
+    localStorage.setItem(seenKey, now)
+    setSeenAt(now)
+  }, [open, seenKey])
+  const missedCount = calls.filter(
+    (c) => c.caller_id !== user.id && isMissedCall(c) && (!seenAt || new Date(c.started_at) > new Date(seenAt))
+  ).length
 
   return (
     <>
@@ -50,6 +65,14 @@ function CallHistoryWidgetInner() {
         className="fixed z-50 bottom-40 right-4 lg:bottom-24 lg:right-6 w-12 h-12 rounded-full bg-card border border-border shadow-lg text-foreground flex items-center justify-center hover:bg-muted transition-colors"
       >
         {open ? <X className="w-5 h-5" aria-hidden="true" /> : <Phone className="w-5 h-5" aria-hidden="true" />}
+        {!open && missedCount > 0 && (
+          <span
+            className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background"
+            aria-label={`${missedCount} appel${missedCount > 1 ? 's' : ''} manqué${missedCount > 1 ? 's' : ''}`}
+          >
+            {missedCount > 9 ? '9+' : missedCount}
+          </span>
+        )}
       </button>
 
       {open && (
