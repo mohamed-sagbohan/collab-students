@@ -6,8 +6,11 @@
 -- ⚠️ PRÉREQUIS avant d'exécuter cette migration :
 -- 1) La fonction reengagement-emails doit être déployée (voir
 --    supabase/functions/reengagement-emails), avec ses secrets posés
---    (RESEND_API_KEY, RESEND_FROM_EMAIL, CRON_SECRET, UNSUBSCRIBE_SECRET,
---    APP_URL) via `supabase secrets set`.
+--    (GMAIL_USER, GMAIL_APP_PASSWORD, CRON_SECRET, UNSUBSCRIBE_SECRET,
+--    APP_URL) via `supabase secrets set`. Envoi en SMTP Gmail faute de
+--    domaine vérifié disponible — voir le commentaire en tête de
+--    supabase/functions/reengagement-emails/index.ts pour les limites
+--    (débit, risque de blocage du compte Gmail) acceptées sciemment.
 -- 2) Créer le secret Vault UNE FOIS, avec la MÊME valeur que CRON_SECRET
 --    (à exécuter séparément, PAS committé — c'est un secret) :
 --      select vault.create_secret('<même valeur que CRON_SECRET>', 'reengagement_cron_secret');

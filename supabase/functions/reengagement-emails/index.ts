@@ -2,7 +2,9 @@
 // Deux usages, branchés par méthode HTTP :
 //  - POST : déclenché par pg_cron (voir migration 041), aucun JWT
 //    utilisateur — authentifié par l'en-tête x-cron-secret. Envoie les
-//    emails dus (get_students_due_reengagement) via Resend.
+//    emails dus (get_students_due_reengagement) via SMTP Gmail (pas de
+//    domaine vérifié disponible — voir la pause entre envois ci-dessous,
+//    nécessaire pour rester sous le radar anti-abus de Google).
 //  - GET  : lien de désinscription en un clic depuis l'email (pas de
 //    connexion requise) — jeton HMAC(userId) plutôt qu'un vrai jeton de
 //    session, vérifié en O(1) sans aller chercher l'utilisateur d'abord.
@@ -11,6 +13,7 @@
 // JWT Supabase standard à présenter.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +65,10 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 const MILESTONE_COPY: Record<number, { subject: string; heading: string; body: string }> = {
   3: {
     subject: 'On vous a manqué sur LearnIT !',
@@ -80,13 +87,19 @@ const MILESTONE_COPY: Record<number, { subject: string; heading: string; body: s
   },
 }
 
+// Espacement entre deux envois SMTP consécutifs — un Gmail perso n'a pas
+// l'infrastructure d'un expéditeur transactionnel : envoyer en rafale
+// ressemble à un pattern de bot et peut déclencher un blocage temporaire
+// du compte. Un lot d'élèves inactives reste de toute façon petit.
+const SEND_DELAY_MS = 1_500
+
 async function sendReengagementEmails(): Promise<Response> {
-  const resendKey = Deno.env.get('RESEND_API_KEY')
-  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL')
+  const gmailUser = Deno.env.get('GMAIL_USER')
+  const gmailPassword = Deno.env.get('GMAIL_APP_PASSWORD')
   const unsubscribeSecret = Deno.env.get('UNSUBSCRIBE_SECRET')
   const functionsUrl = Deno.env.get('SUPABASE_URL')
-  const appUrl = Deno.env.get('APP_URL') // ex. https://learnit.fr — domaine de prod de l'app
-  if (!resendKey || !fromEmail || !unsubscribeSecret || !functionsUrl || !appUrl) {
+  const appUrl = Deno.env.get('APP_URL') // ex. https://collab-students.vercel.app
+  if (!gmailUser || !gmailPassword || !unsubscribeSecret || !functionsUrl || !appUrl) {
     return json({ error: 'Relance email non configurée côté serveur (secrets manquants)' }, 500)
   }
 
@@ -97,50 +110,62 @@ async function sendReengagementEmails(): Promise<Response> {
   let sent = 0
   let failed = 0
 
-  for (const student of due ?? []) {
-    try {
-      const copy = MILESTONE_COPY[student.milestone_days as 3 | 7 | 14]
-      const sig = await hmac(unsubscribeSecret, student.user_id)
-      const unsubscribeUrl =
-        `${functionsUrl}/functions/v1/reengagement-emails?uid=${student.user_id}&sig=${sig}`
+  // Une seule connexion SMTP réutilisée pour tout le lot : ouvrir/fermer
+  // une connexion TLS par email serait plus lent ET plus « en rafale ».
+  const client = new SMTPClient({
+    connection: {
+      hostname: 'smtp.gmail.com',
+      port: 465,
+      tls: true,
+      auth: { username: gmailUser, password: gmailPassword },
+    },
+  })
 
-      const emailHtml = `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <h1 style="font-size: 20px;">${copy.heading}</h1>
-          <p>Bonjour ${student.name ?? ''},</p>
-          <p>${copy.body}</p>
-          <p><a href="${appUrl}" style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;">Reprendre sur LearnIT</a></p>
-          <p style="font-size: 12px; color: #888; margin-top: 32px;">
-            Vous recevez cet email car vous êtes inscrite sur LearnIT.
-            <a href="${unsubscribeUrl}">Se désinscrire de ces rappels</a>.
-          </p>
-        </div>
-      `
+  try {
+    for (const student of due ?? []) {
+      try {
+        const copy = MILESTONE_COPY[student.milestone_days as 3 | 7 | 14]
+        const sig = await hmac(unsubscribeSecret, student.user_id)
+        const unsubscribeUrl =
+          `${functionsUrl}/functions/v1/reengagement-emails?uid=${student.user_id}&sig=${sig}`
 
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: fromEmail,
+        const emailHtml = `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+            <h1 style="font-size: 20px;">${copy.heading}</h1>
+            <p>Bonjour ${student.name ?? ''},</p>
+            <p>${copy.body}</p>
+            <p><a href="${appUrl}" style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;">Reprendre sur LearnIT</a></p>
+            <p style="font-size: 12px; color: #888; margin-top: 32px;">
+              Vous recevez cet email car vous êtes inscrite sur LearnIT.
+              <a href="${unsubscribeUrl}">Se désinscrire de ces rappels</a>.
+            </p>
+          </div>
+        `
+
+        await client.send({
+          from: `LearnIT <${gmailUser}>`,
           to: student.email,
           subject: copy.subject,
+          content: `${copy.body}\n\nReprendre : ${appUrl}\nSe désinscrire : ${unsubscribeUrl}`,
           html: emailHtml,
-        }),
-      })
-      if (!res.ok) throw new Error(`Resend ${res.status}`)
+        })
 
-      const { error: logError } = await supabase.from('reengagement_log').insert({
-        user_id: student.user_id,
-        milestone_days: student.milestone_days,
-        channel: 'email',
-      })
-      if (logError) throw logError
+        const { error: logError } = await supabase.from('reengagement_log').insert({
+          user_id: student.user_id,
+          milestone_days: student.milestone_days,
+          channel: 'email',
+        })
+        if (logError) throw logError
 
-      sent++
-    } catch (err) {
-      failed++
-      console.error('Échec relance', student.user_id, err instanceof Error ? err.message : err)
+        sent++
+      } catch (err) {
+        failed++
+        console.error('Échec relance', student.user_id, err instanceof Error ? err.message : err)
+      }
+      await sleep(SEND_DELAY_MS)
     }
+  } finally {
+    await client.close()
   }
 
   return json({ sent, failed })
