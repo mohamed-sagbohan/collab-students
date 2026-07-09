@@ -9,7 +9,7 @@ import { NavItem } from '../components/ui/NavItem'
 import { Avatar } from '../components/ui/Avatar'
 import { Breadcrumb } from '../components/ui/Breadcrumb'
 import { useStaffUnreadTotal, useStaffChatRealtime } from '../hooks/useChat'
-import { useStaffCallsRealtime, useStaffMissedCallsBadge } from '../hooks/useCalls'
+import { useStaffCallsRealtime, useStaffMissedCallsBadge, useMarkCallBadgeSeen } from '../hooks/useCalls'
 
 const instructorLinks = [
   { to: '/formateur',            icon: LayoutDashboard, label: 'Tableau de bord' },
@@ -144,7 +144,7 @@ function SidebarContent({ profile, logout, onClose, onChangePassword, missedCall
 }
 
 export default function AdminLayout() {
-  const { user, profile, logout } = useAuth()
+  const { profile, logout } = useAuth()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pwOpen, setPwOpen] = useState(false)
@@ -154,20 +154,13 @@ export default function AdminLayout() {
   useStaffChatRealtime()
   useStaffCallsRealtime()
 
-  // Badge « appels manqués » : pas de curseur serveur dédié (voir
-  // useStaffMissedCallsBadge) — on retient juste la dernière visite de
-  // la page /appels, en localStorage, namespacé par utilisateur.
-  const callsSeenKey = user ? `calls-badge-seen:${user.id}` : null
-  const [callsSeenAt, setCallsSeenAt] = useState(() => (callsSeenKey ? localStorage.getItem(callsSeenKey) : null))
+  // Badge « appels manqués » : curseur « vu » en base (call_badge_reads,
+  // migration 037), marqué à chaque visite de la page /appels.
+  const markCallsSeen = useMarkCallBadgeSeen()
   useEffect(() => {
-    if (!callsSeenKey) return
-    if (location.pathname === '/formateur/appels' || location.pathname === '/admin/appels') {
-      const now = new Date().toISOString()
-      localStorage.setItem(callsSeenKey, now)
-      setCallsSeenAt(now)
-    }
-  }, [location.pathname, callsSeenKey])
-  const missedCallsBadge = useStaffMissedCallsBadge(callsSeenAt)
+    if (location.pathname === '/formateur/appels' || location.pathname === '/admin/appels') markCallsSeen()
+  }, [location.pathname, markCallsSeen])
+  const missedCallsBadge = useStaffMissedCallsBadge()
 
   useEffect(() => {
     const handler = () => { if (window.innerWidth >= 1024) setSidebarOpen(false) }

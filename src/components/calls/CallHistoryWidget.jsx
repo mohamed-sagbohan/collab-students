@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Phone, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCallContext } from './CallProvider'
-import { useConversationCalls, isMissedCall } from '../../hooks/useCalls'
+import { useConversationCalls, isMissedCall, useCallBadgeSeenAt, useMarkCallBadgeSeen } from '../../hooks/useCalls'
 import { useMyConversation, useChatPresence, useConversationChannel } from '../../hooks/useChat'
 import CallHistoryList from './CallHistoryList'
 
@@ -40,16 +40,13 @@ function CallHistoryWidgetInner() {
   const canCall = staffOnline && activeCall.status === 'idle' && !!conversationId
   const onCallBack = canCall ? (callType) => startCall({ conversationId, callType, peerName: 'Support LearnIT' }) : undefined
 
-  // Badge « appels manqués » : pas de curseur serveur dédié, juste la
-  // dernière ouverture du panneau (localStorage, namespacé par utilisateur).
-  const seenKey = `calls-badge-seen:${user.id}`
-  const [seenAt, setSeenAt] = useState(() => localStorage.getItem(seenKey))
+  // Badge « appels manqués » : curseur « vu » en base (call_badge_reads,
+  // migration 037), marqué à chaque ouverture du panneau.
+  const seenAt = useCallBadgeSeenAt()
+  const markSeen = useMarkCallBadgeSeen()
   useEffect(() => {
-    if (!open) return
-    const now = new Date().toISOString()
-    localStorage.setItem(seenKey, now)
-    setSeenAt(now)
-  }, [open, seenKey])
+    if (open) markSeen()
+  }, [open, markSeen])
   const missedCount = calls.filter(
     (c) => c.caller_id !== user.id && isMissedCall(c) && (!seenAt || new Date(c.started_at) > new Date(seenAt))
   ).length

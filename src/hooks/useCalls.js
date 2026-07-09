@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { Video, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -116,6 +116,45 @@ export function callDirectionIcon(call, isMine) {
   return callStatusMeta(call).variant === 'destructive' ? PhoneMissed : isMine ? PhoneOutgoing : PhoneIncoming
 }
 
+/* ── Curseur « vu » du badge d'appels manqués (migration 037) ──────
+   Une ligne par utilisateur (pas par conversation) : le badge est un
+   total global aussi bien côté élève (une seule conversation) que
+   côté staff (vue agrégée toutes conversations). ─────────────────── */
+
+export function useCallBadgeSeenAt() {
+  const { user } = useAuth()
+  const query = useQuery({
+    queryKey: ['call-badge-seen'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('call_badge_reads').select('seen_at').maybeSingle()
+      if (error) throw error
+      return data?.seen_at ?? null
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+  })
+  return query.data ?? null
+}
+
+/** Retourne une fonction à appeler quand l'utilisateur consulte ses
+    appels (ouverture du widget élève, visite de la page staff). */
+export function useMarkCallBadgeSeen() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useCallback(() => {
+    if (!user) return
+    const now = new Date().toISOString()
+    queryClient.setQueryData(['call-badge-seen'], now)
+    supabase
+      .from('call_badge_reads')
+      .upsert({ user_id: user.id, seen_at: now })
+      .then(({ error }) => {
+        if (error) console.warn('Marquage vu (appels) :', error.message)
+      })
+  }, [user, queryClient])
+}
+
 /* ── Page staff (toutes conversations) ───────────────────────────── */
 
 export function useStaffCalls({ callType = null, status = null, search = '', page = 0 } = {}) {
@@ -153,14 +192,13 @@ export function useStaffCalls({ callType = null, status = null, search = '', pag
 const MISSED_BADGE_LIMIT = 100
 
 /** Badge « appels manqués » de la sidebar staff : nombre d'appels manqués
-    (initiés par une étudiante) survenus après `seenAt`. Pas de curseur
-    serveur dédié (contrairement à chat_reads) — `seenAt` est géré côté
-    appelant (AdminLayout, localStorage) pour éviter une nouvelle table
-    pour un simple indicateur. Se raccroche à la clé ['staff-calls'] :
-    invalidée automatiquement par useStaffCallsRealtime. */
-export function useStaffMissedCallsBadge(seenAt) {
+    (initiés par une étudiante) survenus après le curseur « vu »
+    (call_badge_reads, migration 037). Se raccroche à la clé
+    ['staff-calls'] : invalidée automatiquement par useStaffCallsRealtime. */
+export function useStaffMissedCallsBadge() {
   const { profile } = useAuth()
   const isStaff = profile?.role === 'formateur' || profile?.role === 'admin'
+  const seenAt = useCallBadgeSeenAt()
 
   const query = useQuery({
     queryKey: ['staff-calls', 'missed-badge'],
