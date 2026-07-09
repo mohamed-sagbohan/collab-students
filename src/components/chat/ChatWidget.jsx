@@ -1,14 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, X, Phone, Video, PhoneCall } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { MessageCircle, X, Phone, Video } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../ui/Toast'
 import { useCallContext } from '../calls/CallProvider'
-import { useConversationCalls } from '../../hooks/useCalls'
 import ChatThread from './ChatThread'
-import CallHistoryList from './CallHistoryList'
 import {
   useMyConversation,
   useChatMessages,
@@ -79,7 +76,6 @@ function ChatWidgetInner() {
   const { open, lessonContext, setLessonContext, openChat, closeChat } = useContext(ChatStateContext)
   const [searchParams, setSearchParams] = useSearchParams()
   const [everOpened, setEverOpened] = useState(false)
-  const [tab, setTab] = useState('discussion')
 
   const { conversationId, ensureConversation, ensuring } = useMyConversation()
   const { unread, markRead } = useMyUnread(conversationId)
@@ -108,7 +104,6 @@ function ChatWidgetInner() {
   const { sendTyping, peerTyping } = useConversationChannel({
     conversationId,
     withPostgres: true,
-    withCalls: true,
     onInsert,
   })
 
@@ -128,8 +123,6 @@ function ChatWidgetInner() {
   const { messages, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useChatMessages(
     everOpened ? conversationId : null
   )
-  const { calls } = useConversationCalls(everOpened ? conversationId : null)
-  const onCallBack = canCall ? (callType) => startCall({ conversationId, callType, peerName: 'Support LearnIT' }) : undefined
   const sendMessage = useSendMessage(conversationId)
   const deleteMessage = useDeleteMessage(conversationId)
   const editMessage = useEditMessage(conversationId)
@@ -305,40 +298,6 @@ function ChatWidgetInner() {
             </button>
           </div>
 
-          {/* Discussion / Appels */}
-          <div className="flex gap-1 p-1 m-2 mb-0 bg-muted rounded-xl shrink-0" role="tablist" aria-label="Discussion ou appels">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'discussion'}
-              onClick={() => setTab('discussion')}
-              className={cn(
-                'flex-1 min-h-8 px-3 rounded-lg text-xs font-semibold transition-colors',
-                tab === 'discussion' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              Discussion
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'appels'}
-              onClick={() => setTab('appels')}
-              className={cn(
-                'flex-1 min-h-8 px-3 rounded-lg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5',
-                tab === 'appels' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <PhoneCall className="w-3.5 h-3.5" aria-hidden="true" />
-              Appels
-            </button>
-          </div>
-
-          {tab === 'appels' ? (
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <CallHistoryList calls={calls} currentUserId={user.id} onCallBack={onCallBack} />
-            </div>
-          ) : (
           <ChatThread
             key={conversationId ?? 'nouvelle'}
             messages={messages}
@@ -366,7 +325,6 @@ function ChatWidgetInner() {
             emptyDescription="Un formateur vous répondra ici. N'hésitez pas : il n'y a pas de mauvaise question."
             composerPlaceholder="Posez votre question…"
           />
-          )}
         </div>
       )}
     </>

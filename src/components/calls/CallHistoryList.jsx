@@ -11,9 +11,8 @@ const ICON_VARIANT_CLASSES = {
 
 /**
  * Historique des appels d'une conversation — liste compacte, plus récent
- * en premier. Purement présentationnel (comme ChatThread) : reçoit la
- * même donnée que le fil fusionné (useConversationCalls), pas de fetch
- * propre.
+ * en premier. Purement présentationnel : reçoit la donnée déjà chargée
+ * (useConversationCalls), pas de fetch propre.
  */
 export default function CallHistoryList({ calls, currentUserId, onCallBack }) {
   if (calls.length === 0) {

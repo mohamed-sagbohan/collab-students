@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router'
 import Navbar from '../components/Navbar'
 import BottomNav from '../components/BottomNav'
 import ChatWidget, { ChatWidgetProvider } from '../components/chat/ChatWidget'
+import CallHistoryWidget from '../components/calls/CallHistoryWidget'
 import { SkipLink } from '../components/ui/SkipLink'
 import { useStudentHeartbeat } from '../hooks/useChat'
 
@@ -23,6 +24,7 @@ export default function AppLayout() {
         </main>
         <BottomNav />
         <ChatWidget />
+        <CallHistoryWidget />
       </div>
     </ChatWidgetProvider>
   )
