@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../ui/Toast'
 import { useCallContext } from '../calls/CallProvider'
-import { useConversationCalls, mergeChatFeed } from '../../hooks/useCalls'
+import { useConversationCalls } from '../../hooks/useCalls'
 import ChatThread from './ChatThread'
 import CallHistoryList from './CallHistoryList'
 import {
@@ -129,7 +129,6 @@ function ChatWidgetInner() {
     everOpened ? conversationId : null
   )
   const { calls } = useConversationCalls(everOpened ? conversationId : null)
-  const items = useMemo(() => mergeChatFeed(messages, calls), [messages, calls])
   const onCallBack = canCall ? (callType) => startCall({ conversationId, callType, peerName: 'Support LearnIT' }) : undefined
   const sendMessage = useSendMessage(conversationId)
   const deleteMessage = useDeleteMessage(conversationId)
@@ -342,7 +341,7 @@ function ChatWidgetInner() {
           ) : (
           <ChatThread
             key={conversationId ?? 'nouvelle'}
-            messages={items}
+            messages={messages}
             isLoading={everOpened && !!conversationId && isLoading}
             isError={isError}
             hasNextPage={hasNextPage}
@@ -363,7 +362,6 @@ function ChatWidgetInner() {
             lessonContext={lessonContext}
             onClearLessonContext={() => setLessonContext(null)}
             showSenderInfo
-            onCallBack={onCallBack}
             emptyTitle="Posez votre première question !"
             emptyDescription="Un formateur vous répondra ici. N'hésitez pas : il n'y a pas de mauvaise question."
             composerPlaceholder="Posez votre question…"

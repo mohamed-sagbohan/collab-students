@@ -77,19 +77,7 @@ export function updateCallInCache(queryClient, conversationId, callId, patch) {
   })
 }
 
-/** Fusionne messages et appels en un seul fil chronologique — `kind`
-    discrimine le rendu dans ChatThread (MessageBubble vs CallLogEntry).
-    `started_at` est aliasé en `created_at` pour que le tri par jour déjà
-    en place dans ChatThread continue de fonctionner sans modification. */
-export function mergeChatFeed(messages, calls) {
-  const tagged = [
-    ...messages.map((m) => ({ ...m, kind: 'message' })),
-    ...calls.map((c) => ({ ...c, kind: 'call', created_at: c.started_at })),
-  ]
-  return tagged.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-}
-
-/** Statut affiché + variante de couleur — partagé entre CallLogEntry,
+/** Statut affiché + variante de couleur — partagé entre
     CallHistoryList et la page staff. */
 export function callStatusMeta(call) {
   const stale = call.status === 'ringing' && Date.now() - new Date(call.started_at).getTime() > STALE_RINGING_MS
@@ -116,8 +104,7 @@ export function callStatusMeta(call) {
   }
 }
 
-/** Icône de direction/issue — partagée entre CallLogEntry et
-    CallHistoryList pour ne pas dupliquer la sélection. */
+/** Icône de direction/issue, utilisée par CallHistoryList. */
 export function callDirectionIcon(call, isMine) {
   if (call.call_type === 'video') return Video
   return callStatusMeta(call).variant === 'destructive' ? PhoneMissed : isMine ? PhoneOutgoing : PhoneIncoming

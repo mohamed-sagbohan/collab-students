@@ -29,7 +29,6 @@ import {
   useConversationReads,
   useToggleReaction,
 } from '../../hooks/useChat'
-import { useConversationCalls, mergeChatFeed } from '../../hooks/useCalls'
 
 export default function Messaging() {
   const { user } = useAuth()
@@ -113,8 +112,6 @@ export default function Messaging() {
 
   const { messages, isLoading: loadingMessages, isError: errorMessages, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useChatMessages(activeId)
-  const { calls } = useConversationCalls(activeId)
-  const items = useMemo(() => mergeChatFeed(messages, calls), [messages, calls])
   const sendMessage = useSendMessage(activeId)
   const deleteMessage = useDeleteMessage(activeId)
   const editMessage = useEditMessage(activeId)
@@ -461,7 +458,7 @@ export default function Messaging() {
 
                 <ChatThread
                   key={active.id}
-                  messages={items}
+                  messages={messages}
                   isLoading={loadingMessages}
                   isError={errorMessages}
                   hasNextPage={hasNextPage}
@@ -479,11 +476,6 @@ export default function Messaging() {
                   peerTyping={peerTyping}
                   peerLastReadAt={peerLastReadAt}
                   showSenderInfo
-                  onCallBack={
-                    activeCall.status === 'idle' && active.online
-                      ? (callType) => startCall({ conversationId: active.id, callType, peerName: active.student_name })
-                      : undefined
-                  }
                   emptyTitle="Aucun message dans ce fil"
                   emptyDescription="Écrivez le premier message ci-dessous."
                   composerPlaceholder="Répondez à l'apprenant…"

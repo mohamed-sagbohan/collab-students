@@ -548,9 +548,9 @@ export function useConversationChannel({ conversationId, withPostgres = false, w
     // Appels (migration 034+) : même topic que la signalisation WebRTC
     // (CallProvider.joinSignaling ouvre sa propre instance de canal sur ce
     // topic pendant un appel actif — plusieurs souscriptions au même topic
-    // coexistent sans problème côté Supabase Realtime). Alimente le fil
-    // fusionné messages+appels (useCalls.mergeChatFeed) uniquement si le
-    // widget/onglet a déjà chargé ['calls', conversationId] en cache.
+    // coexistent sans problème côté Supabase Realtime). Tient à jour
+    // l'onglet Appels du widget (useCalls.useConversationCalls) uniquement
+    // si le widget a déjà chargé ['calls', conversationId] en cache.
     if (withCalls) {
       channel.on(
         'postgres_changes',
