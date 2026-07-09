@@ -30,8 +30,10 @@ const CALLS_FETCH_LIMIT = 500
 // Un appel resté 'ringing' plus longtemps que le minuteur de sonnerie
 // côté client (45s, CallProvider) + marge n'a pas pu passer par
 // missed/declined/accepted normalement (onglet fermé, réseau coupé chez
-// l'appelant) : aucun cron ne l'expire côté serveur, donc on le traite
-// comme manqué à l'affichage seulement (jamais d'écriture DB ici).
+// l'appelant). Traité comme manqué ICI dès 60s pour un affichage
+// réactif côté client (jamais d'écriture DB) ; la ligne elle-même n'est
+// corrigée en base que ~90s+ plus tard, par le pg_cron de la
+// migration 038 — délai volontaire, ce n'est qu'un rattrapage.
 const STALE_RINGING_MS = 60_000
 
 export function formatDuration(totalSeconds) {
