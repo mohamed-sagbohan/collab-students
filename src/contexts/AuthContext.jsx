@@ -86,8 +86,13 @@ export function AuthProvider({ children }) {
     if (error) throw error
   }
 
+  // Réaligne `profile` après une modification qui ne passe pas par un
+  // événement auth (ex. bascule d'une préférence) — les mises à jour de
+  // rôle/mot de passe passent déjà par onAuthStateChange ou fetchProfile.
+  const refetchProfile = () => user && fetchProfile(user.id)
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, register, sendPasswordReset, updatePassword }}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout, register, sendPasswordReset, updatePassword, refetchProfile }}>
       {children}
     </AuthContext.Provider>
   )
