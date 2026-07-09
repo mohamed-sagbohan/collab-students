@@ -110,6 +110,11 @@ async function sendReengagementEmails(): Promise<Response> {
   let sent = 0
   let failed = 0
 
+  // Rien à envoyer aujourd'hui : ce sera le cas la plupart des jours une
+  // fois le cron actif (peu d'élèves passent un palier le même jour) —
+  // pas la peine d'ouvrir une connexion SMTP pour ne rien envoyer.
+  if (!due || due.length === 0) return json({ sent, failed })
+
   // Une seule connexion SMTP réutilisée pour tout le lot : ouvrir/fermer
   // une connexion TLS par email serait plus lent ET plus « en rafale ».
   const client = new SMTPClient({
@@ -122,7 +127,7 @@ async function sendReengagementEmails(): Promise<Response> {
   })
 
   try {
-    for (const student of due ?? []) {
+    for (const student of due) {
       try {
         const copy = MILESTONE_COPY[student.milestone_days as 3 | 7 | 14]
         const sig = await hmac(unsubscribeSecret, student.user_id)
@@ -167,7 +172,15 @@ async function sendReengagementEmails(): Promise<Response> {
       await sleep(SEND_DELAY_MS)
     }
   } finally {
-    await client.close()
+    // Best-effort : un échec de fermeture ne doit jamais écraser un
+    // {sent, failed} déjà correct (les emails sont partis, c'est ce qui
+    // compte — voir l'incident vécu où close() plantait sur une
+    // connexion jamais ouverte, faute d'envoi, masquant une 500 fausse).
+    try {
+      await client.close()
+    } catch (err) {
+      console.error('Fermeture SMTP :', err instanceof Error ? err.message : err)
+    }
   }
 
   return json({ sent, failed })
