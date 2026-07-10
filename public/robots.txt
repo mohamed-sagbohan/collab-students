@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Allow: /guide
+Allow: /login
+Allow: /register
+Disallow: /dashboard
+Disallow: /cours
+Disallow: /resultats
+Disallow: /formateur
+Disallow: /admin
+Disallow: /auth/callback
+Disallow: /reset-password
+
+Sitemap: https://collab-students.vercel.app/sitemap.xml
