@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { MessageSquare, CornerDownRight, Trash2, Send } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { acquireChannel } from '../lib/realtimeChannel'
 import { Skeleton } from './Skeleton'
 import { EmptyState } from './ui/EmptyState'
 import { Avatar } from './ui/Avatar'
@@ -211,9 +212,8 @@ export default function LessonComments({ lessonId }) {
   // Realtime : nouveaux commentaires
   useEffect(() => {
     if (!lessonId) return
-    const channel = supabase
-      .channel(`comments-${lessonId}`)
-      .on('postgres_changes', {
+    const handle = acquireChannel(`comments-${lessonId}`, undefined, (channel) => {
+      channel.on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'comments',
@@ -221,8 +221,8 @@ export default function LessonComments({ lessonId }) {
       }, () => {
         queryClient.invalidateQueries({ queryKey: ['comments', lessonId] })
       })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    })
+    return () => { handle.remove() }
   }, [lessonId, queryClient])
 
   // Seuls les commentaires racines (pas de parent)

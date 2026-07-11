@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, Zap, Target, Users, Clock, Wifi, WifiOff, Keyboard, CheckCircle, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { acquireChannel } from '../../lib/realtimeChannel'
 import { useOnlineStudents } from '../../hooks/useChat'
 import { Skeleton } from '../../components/Skeleton'
 import { StatCard } from '../../components/ui/StatCard'
@@ -97,9 +98,8 @@ export default function LiveMonitor() {
 
   // Realtime subscription
   useEffect(() => {
-    const channel = supabase
-      .channel('live-monitor')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'exercise_results' }, async (payload) => {
+    const handle = acquireChannel('live-monitor', undefined, (channel) => {
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'exercise_results' }, async (payload) => {
         const { data } = await supabase
           .from('exercise_results')
           .select(RESULT_QUERY)
@@ -111,9 +111,9 @@ export default function LiveMonitor() {
           queryClient.setQueryData(['live-monitor'], (old) => old ? [data, ...old].slice(0, 100) : [data])
         }
       })
-      .subscribe((status) => setConnected(status === 'SUBSCRIBED'))
+    }, (status) => setConnected(status === 'SUBSCRIBED'))
 
-    return () => { supabase.removeChannel(channel) }
+    return () => { handle.remove() }
   }, [queryClient])
 
   const stats = useMemo(() => {

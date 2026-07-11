@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { Bell, Award, MessageSquare, MessageCircle, BookOpen, CheckCheck, PhoneMissed } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { acquireChannel } from '../lib/realtimeChannel'
 
 const TYPE_ICON = {
   badge:         { Icon: Award,         color: 'text-warning',     bg: 'bg-warning/10',     border: 'border-warning/20' },
@@ -57,9 +58,8 @@ export default function NotificationBell() {
   // Realtime : nouvelles notifications
   useEffect(() => {
     if (!user) return
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
-      .on('postgres_changes', {
+    const handle = acquireChannel(`notifications-${user.id}`, undefined, (channel) => {
+      channel.on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'notifications',
@@ -73,8 +73,8 @@ export default function NotificationBell() {
           queryClient.invalidateQueries({ queryKey: ['my-conversation'] })
         }
       })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
+    })
+    return () => { handle.remove() }
   }, [user, queryClient])
 
   const unreadCount = notifications.filter((n) => !n.read).length

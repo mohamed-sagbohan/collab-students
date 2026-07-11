@@ -6,6 +6,9 @@ import AppLayout from '../layouts/AppLayout'
 import AdminLayout from '../layouts/AdminLayout'
 import RootPage from '../pages/RootPage'
 import LoadingScreen from '../components/LoadingScreen'
+// Import direct (pas de lazy) : la page d'erreur doit s'afficher même
+// quand le chargement d'un chunk est précisément ce qui a échoué.
+import RouteErrorPage from '../components/RouteErrorPage'
 
 /**
  * Code splitting : chaque page est un chunk séparé — une apprenante ne
@@ -46,7 +49,7 @@ function page(Component) {
   )
 }
 
-export const router = createBrowserRouter([
+const routes = [
   // Landing / redirect selon rôle
   { path: '/', element: <RootPage /> },
 
@@ -123,5 +126,16 @@ export const router = createBrowserRouter([
         ],
       },
     ],
+  },
+]
+
+export const router = createBrowserRouter([
+  {
+    // Route englobante sans chemin : toute erreur non gérée (crash d'un
+    // effet, chunk introuvable après déploiement, URL inconnue) remonte
+    // ici au lieu de l'écran par défaut de react-router (stack trace
+    // brute « Unexpected Application Error! »).
+    errorElement: <RouteErrorPage />,
+    children: routes,
   },
 ])

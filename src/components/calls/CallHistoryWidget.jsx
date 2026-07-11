@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router'
 import { Phone, X } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCallContext } from './CallProvider'
-import { useConversationCalls, isMissedCall, useCallBadgeSeenAt, useMarkCallBadgeSeen } from '../../hooks/useCalls'
-import { useMyConversation, useChatPresence, useConversationChannel } from '../../hooks/useChat'
+import { useConversationCalls, useConversationCallsRealtime, isMissedCall, useCallBadgeSeenAt, useMarkCallBadgeSeen } from '../../hooks/useCalls'
+import { useMyConversation, useChatPresence } from '../../hooks/useChat'
 import CallHistoryList from './CallHistoryList'
 
 /**
@@ -40,9 +40,9 @@ function CallHistoryWidgetInner() {
   const { conversationId } = useMyConversation()
   // Chargé même bouton fermé : nécessaire pour le badge d'appels manqués.
   const { calls } = useConversationCalls(conversationId)
-  // withCalls tient la liste à jour en temps réel — même topic que la
-  // signalisation WebRTC (voir useConversationChannel).
-  useConversationChannel({ conversationId, withCalls: true })
+  // Topic dédié conv-calls-<id> : le topic du chat appartient au widget
+  // de chat (un topic = un canal depuis supabase-js 2.110).
+  useConversationCallsRealtime(conversationId)
 
   const online = useChatPresence()
   const staffOnline = useMemo(

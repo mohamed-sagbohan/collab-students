@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { acquireChannel } from '../../lib/realtimeChannel'
 import { useAuth } from '../../contexts/AuthContext'
 import { getIceServers, getLocalMedia, stopStream, mediaErrorMessage } from '../../lib/webrtc'
 import CallOverlay from './CallOverlay'
@@ -11,8 +12,11 @@ import CallOverlay from './CallOverlay'
  * realtime par l'apprenante concernée ET tout le staff — un appel entrant
  * sonne même si le destinataire n'a pas cette conversation ouverte.
  * Le SDP offer/answer et les candidats ICE, eux, transitent en broadcast
- * sur le canal `chat-conv-<conversationId>` déjà autorisé (migration 018),
- * exactement comme l'indicateur « en train d'écrire ».
+ * sur le canal privé DÉDIÉ `call-sig-<conversationId>` (autorisé par la
+ * migration 042, mêmes règles que le chat). Surtout pas le topic du chat :
+ * un topic ne peut plus avoir qu'un seul canal par client depuis
+ * supabase-js 2.110 (voir lib/realtimeChannel.js), et `chat-conv-<id>`
+ * appartient au fil de discussion.
  *
  * Asymétrie du refus, assumée : quand l'apprenante est LA seule
  * destinataire (staff → elle), son refus est définitif (status='declined').
@@ -71,7 +75,7 @@ export function CallProvider({ children }) {
   // local, candidats ICE en attente, minuteurs).
   const session = useRef({
     pc: null,
-    channel: null,
+    channel: null,        // handle acquireChannel du canal de signalisation call-sig-<id>
     localStream: null,
     iceServers: null,     // STUN + relais TURN, récupérés au début de chaque appel
     pendingIce: [],
@@ -98,10 +102,8 @@ export function CallProvider({ children }) {
     clearTimeout(session.giveUpTimer)
     session.pc?.close()
     session.pc = null
-    if (session.channel) {
-      supabase.removeChannel(session.channel)
-      session.channel = null
-    }
+    session.channel?.remove()
+    session.channel = null
     stopStream(session.localStream)
     session.localStream = null
     session.pendingIce = []
@@ -201,63 +203,64 @@ export function CallProvider({ children }) {
     return pc
   }, [session, user?.id, endWithStatus])
 
-  /* ── Signalisation : rejoint le canal de la conversation (déjà
-     autorisé pour l'apprenante propriétaire + tout le staff) ────── */
+  /* ── Signalisation : canal privé dédié à la conversation (autorisé
+     pour l'apprenante propriétaire + tout le staff, migration 042) ── */
   const joinSignaling = useCallback((conversationId, callId, { isCaller }) => {
     // broadcast.ack : nécessaire pour que channel.send() attende la
     // confirmation serveur au lieu de résoudre en fire-and-forget — voir
     // pc.onicecandidate ci-dessus (diagnostic ICE basé sur l'envoi
     // confirmé, pas la simple génération locale).
-    const channel = supabase.channel(`chat-conv-${conversationId}`, { config: { private: true, broadcast: { ack: true } } })
+    session.channel = acquireChannel(
+      `call-sig-${conversationId}`,
+      { config: { private: true, broadcast: { ack: true } } },
+      (channel) => {
+        // Côté appelé : reçoit l'offre, répond. L'offre est RENVOYÉE
+        // périodiquement par l'appelant tant qu'aucune réponse n'est reçue
+        // (absorbe une éventuelle course d'abonnement), et une NOUVELLE offre
+        // arrive aussi lors d'un redémarrage ICE après coupure (voir
+        // attemptIceRestart) — dans les deux cas, une offre n'est valide à
+        // traiter QUE depuis l'état 'stable' (source de vérité JSEP native,
+        // contrairement à un simple booléen qui bloquerait aussi les
+        // renégociations légitimes).
+        channel.on('broadcast', { event: 'call-offer' }, async ({ payload }) => {
+          if (payload.callId !== callId || isCaller || !session.pc || session.pc.signalingState !== 'stable') return
+          await session.pc.setRemoteDescription(payload.sdp)
+          for (const c of session.pendingIce) await session.pc.addIceCandidate(c)
+          session.pendingIce = []
+          const answer = await session.pc.createAnswer()
+          await session.pc.setLocalDescription(answer)
+          channel.send({ type: 'broadcast', event: 'call-answer', payload: { callId, sdp: answer } })
+        })
 
-    // Côté appelé : reçoit l'offre, répond. L'offre est RENVOYÉE
-    // périodiquement par l'appelant tant qu'aucune réponse n'est reçue
-    // (absorbe une éventuelle course d'abonnement), et une NOUVELLE offre
-    // arrive aussi lors d'un redémarrage ICE après coupure (voir
-    // attemptIceRestart) — dans les deux cas, une offre n'est valide à
-    // traiter QUE depuis l'état 'stable' (source de vérité JSEP native,
-    // contrairement à un simple booléen qui bloquerait aussi les
-    // renégociations légitimes).
-    channel.on('broadcast', { event: 'call-offer' }, async ({ payload }) => {
-      if (payload.callId !== callId || isCaller || !session.pc || session.pc.signalingState !== 'stable') return
-      await session.pc.setRemoteDescription(payload.sdp)
-      for (const c of session.pendingIce) await session.pc.addIceCandidate(c)
-      session.pendingIce = []
-      const answer = await session.pc.createAnswer()
-      await session.pc.setLocalDescription(answer)
-      channel.send({ type: 'broadcast', event: 'call-answer', payload: { callId, sdp: answer } })
-    })
+        // Côté appelant : reçoit la réponse — une réponse n'est valide que
+        // depuis 'have-local-offer' (offre initiale OU redémarrage ICE en
+        // cours) ; un doublon de retry arrivant après coup est ignoré car
+        // l'état sera déjà repassé à 'stable'.
+        channel.on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
+          if (payload.callId !== callId || !isCaller || !session.pc || session.pc.signalingState !== 'have-local-offer') return
+          clearInterval(session.offerRetry)
+          await session.pc.setRemoteDescription(payload.sdp)
+          for (const c of session.pendingIce) await session.pc.addIceCandidate(c)
+          session.pendingIce = []
+        })
 
-    // Côté appelant : reçoit la réponse — une réponse n'est valide que
-    // depuis 'have-local-offer' (offre initiale OU redémarrage ICE en
-    // cours) ; un doublon de retry arrivant après coup est ignoré car
-    // l'état sera déjà repassé à 'stable'.
-    channel.on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
-      if (payload.callId !== callId || !isCaller || !session.pc || session.pc.signalingState !== 'have-local-offer') return
-      clearInterval(session.offerRetry)
-      await session.pc.setRemoteDescription(payload.sdp)
-      for (const c of session.pendingIce) await session.pc.addIceCandidate(c)
-      session.pendingIce = []
-    })
+        // Candidats ICE, dans les deux sens (bufferisés si la description
+        // distante n'est pas encore posée — race normale en WebRTC).
+        channel.on('broadcast', { event: 'call-ice' }, async ({ payload }) => {
+          if (payload.callId !== callId || payload.from === user.id || !session.pc) return
+          session.diag.remoteTypes.add(candidateType(payload.candidate))
+          session.diag.remoteCount += 1
+          if (session.pc.remoteDescription) await session.pc.addIceCandidate(payload.candidate)
+          else session.pendingIce.push(payload.candidate)
+        })
 
-    // Candidats ICE, dans les deux sens (bufferisés si la description
-    // distante n'est pas encore posée — race normale en WebRTC).
-    channel.on('broadcast', { event: 'call-ice' }, async ({ payload }) => {
-      if (payload.callId !== callId || payload.from === user.id || !session.pc) return
-      session.diag.remoteTypes.add(candidateType(payload.candidate))
-      session.diag.remoteCount += 1
-      if (session.pc.remoteDescription) await session.pc.addIceCandidate(payload.candidate)
-      else session.pendingIce.push(payload.candidate)
-    })
-
-    // Raccroché arrive plus vite par broadcast que par la mise à jour
-    // en base (utile pour couper immédiatement côté pair).
-    channel.on('broadcast', { event: 'call-hangup' }, ({ payload }) => {
-      if (payload.callId === callId) endWithStatus('ended')
-    })
-
-    Promise.resolve(supabase.realtime.setAuth()).finally(() => channel.subscribe())
-    session.channel = channel
+        // Raccroché arrive plus vite par broadcast que par la mise à jour
+        // en base (utile pour couper immédiatement côté pair).
+        channel.on('broadcast', { event: 'call-hangup' }, ({ payload }) => {
+          if (payload.callId === callId) endWithStatus('ended')
+        })
+      }
+    )
   }, [session, user?.id, endWithStatus])
 
   /* ── Appelant : dès que l'appel est accepté, crée et envoie l'offre.
@@ -308,9 +311,8 @@ export function CallProvider({ children }) {
     if (!user || !profile) return
     const isStaff = profile.role === 'formateur' || profile.role === 'admin'
 
-    const channel = supabase
-      .channel('calls-lifecycle')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calls' }, (payload) => {
+    const handle = acquireChannel('calls-lifecycle', undefined, (channel) => {
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calls' }, (payload) => {
         const row = payload.new
         if (row.caller_id === user.id) return // c'est moi qui appelle, déjà géré par startCall
         if (row.status !== 'ringing') return
@@ -328,7 +330,7 @@ export function CallProvider({ children }) {
           isCaller: false,
         })
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls' }, (payload) => {
+      channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls' }, (payload) => {
         const row = payload.new
         const current = callRef.current
         if (row.id !== current.callId) return
@@ -348,9 +350,9 @@ export function CallProvider({ children }) {
           // propre ; le broadcast call-hangup arrive en parallèle.
         }
       })
-      .subscribe()
+    })
 
-    return () => supabase.removeChannel(channel)
+    return () => handle.remove()
   }, [user, profile, proceedAsCaller, endWithStatus])
 
   /* ── Minuteur de durée pendant l'appel actif ─────────────────── */

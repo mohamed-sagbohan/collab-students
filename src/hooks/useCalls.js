@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { Video, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { acquireChannel } from '../lib/realtimeChannel'
 import { useAuth } from '../contexts/AuthContext'
 
 /**
@@ -12,12 +13,13 @@ import { useAuth } from '../contexts/AuthContext'
  *   ['calls', conversationId] → Array (fil par conversation, non paginé)
  *   ['staff-calls', ...]      → { total, calls } (RPC, page /appels)
  *
- * Canaux realtime :
- *   chat-conv-<id> : postgres_changes INSERT/UPDATE sur `calls` quand
- *                    useConversationChannel({withCalls: true}) — même
- *                    topic que la signalisation WebRTC (CallProvider).
- *   calls-staff    : postgres_changes global, monté une fois dans
- *                    AdminLayout (comme chat-staff pour les messages).
+ * Canaux realtime (un topic = UN canal, voir lib/realtimeChannel.js) :
+ *   conv-calls-<id> : postgres_changes INSERT/UPDATE sur `calls`
+ *                     (useConversationCallsRealtime, widget élève) —
+ *                     topic dédié, distinct du chat (chat-conv-<id>) et
+ *                     de la signalisation WebRTC (call-sig-<id>).
+ *   calls-staff     : postgres_changes global, monté une fois dans
+ *                     AdminLayout (comme chat-staff pour les messages).
  */
 
 export const CALLS_SELECT =
@@ -77,6 +79,34 @@ export function updateCallInCache(queryClient, conversationId, callId, patch) {
     if (!old) return old
     return old.map((c) => (c.id === callId ? { ...c, ...patch } : c))
   })
+}
+
+/** Tient ['calls', conversationId] à jour en temps réel (widget élève).
+    Topic dédié : `chat-conv-<id>` appartient au widget de chat, et un
+    topic ne peut plus être partagé entre composants (supabase-js 2.110).
+    Canal public : postgres_changes est de toute façon filtré par la RLS
+    de `calls` (même modèle que calls-staff et calls-lifecycle). */
+export function useConversationCallsRealtime(conversationId) {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!conversationId) return
+    const handle = acquireChannel(`conv-calls-${conversationId}`, undefined, (channel) => {
+      channel.on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'calls', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => appendCallToCache(queryClient, conversationId, payload.new)
+      )
+      channel.on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'calls', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => updateCallInCache(queryClient, conversationId, payload.new.id, payload.new)
+      )
+    })
+    return () => {
+      handle.remove()
+    }
+  }, [conversationId, queryClient])
 }
 
 /** Un 'ringing' périmé (voir STALE_RINGING_MS ci-dessus) compte comme
@@ -235,23 +265,22 @@ export function useStaffCallsRealtime() {
 
   useEffect(() => {
     if (!user || !isStaff) return
-    const channel = supabase
-      .channel('calls-staff')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calls' }, (payload) => {
+    const handle = acquireChannel('calls-staff', undefined, (channel) => {
+      channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calls' }, (payload) => {
         const row = payload.new
         queryClient.invalidateQueries({ queryKey: ['staff-calls'] })
         if (queryClient.getQueryData(['calls', row.conversation_id])) {
           appendCallToCache(queryClient, row.conversation_id, row)
         }
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls' }, (payload) => {
+      channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls' }, (payload) => {
         const row = payload.new
         queryClient.invalidateQueries({ queryKey: ['staff-calls'] })
         if (queryClient.getQueryData(['calls', row.conversation_id])) {
           updateCallInCache(queryClient, row.conversation_id, row.id, row)
         }
       })
-      .subscribe()
-    return () => supabase.removeChannel(channel)
+    })
+    return () => handle.remove()
   }, [user, isStaff, queryClient])
 }

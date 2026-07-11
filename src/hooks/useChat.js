@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { acquireChannel } from '../lib/realtimeChannel'
 import { compressImage } from '../lib/imageCompression'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../components/ui/Toast'
-import { appendCallToCache, updateCallInCache } from './useCalls'
 
 /**
  * Logique partagée du chat de support (apprenante ↔ staff).
@@ -15,10 +15,16 @@ import { appendCallToCache, updateCallInCache } from './useCalls'
  *   ['chat-unread', conversationId]   → number        (apprenante)
  *   ['staff-conversations']           → Array (RPC)   (badge sidebar + page Messagerie)
  *
- * Canaux realtime :
- *   chat-conv-<id> : postgres_changes INSERT (apprenante) + broadcast typing
+ * Canaux realtime (⚠️ un topic = UN canal depuis supabase-js 2.110 — voir
+ * lib/realtimeChannel.js ; chaque topic n'a qu'un seul composant
+ * propriétaire, l'historique d'appels et la signalisation WebRTC ont
+ * leurs propres topics dans useCalls.js / CallProvider) :
+ *   chat-conv-<id> : postgres_changes + broadcast typing (fil ouvert :
+ *                    widget apprenante OU Messagerie staff)
  *   chat-staff     : postgres_changes INSERT global (monté une fois dans AdminLayout)
- *   chat-presence  : presence globale (apprenantes track, staff lit)
+ *   chat-presence  : presence globale (staff track, tout le monde lit) —
+ *                    canal PARTAGÉ compté par référence (2 widgets le
+ *                    montent en même temps côté apprenante)
  */
 
 export const PAGE_SIZE = 30
@@ -476,7 +482,7 @@ export function useConversationReads(conversationId) {
 
 /* ── Canal de conversation : nouveaux messages + « en train d'écrire » ── */
 
-export function useConversationChannel({ conversationId, withPostgres = false, withCalls = false, onInsert }) {
+export function useConversationChannel({ conversationId, withPostgres = false, onInsert }) {
   const { user, profile } = useAuth()
   const queryClient = useQueryClient()
   const [peerTyping, setPeerTyping] = useState(null) // { name } | null
@@ -494,125 +500,102 @@ export function useConversationChannel({ conversationId, withPostgres = false, w
 
     // Canal privé (migration 018) : seuls la propriétaire de la conversation
     // et le staff peuvent le rejoindre — policies RLS sur realtime.messages.
-    const channel = supabase.channel(`chat-conv-${conversationId}`, {
-      config: { private: true },
-    })
-
+    // Ce topic appartient au SEUL fil de discussion monté (widget apprenante
+    // ou Messagerie staff) : l'historique d'appels (conv-calls-<id>,
+    // useCalls.js) et la signalisation WebRTC (call-sig-<id>, CallProvider)
+    // ont leurs propres topics — un topic ne peut plus être partagé entre
+    // composants depuis supabase-js 2.110 (voir lib/realtimeChannel.js).
     // Tous les bindings AVANT subscribe() — on ne peut pas en ajouter après.
-    if (withPostgres) {
-      channel.on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => onInsertRef.current?.(payload.new)
-      )
-      // Suppressions (REPLICA IDENTITY FULL, migration 021) : le message
-      // disparaît en direct chez l'autre participant.
-      channel.on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          if (!payload.old?.id) return
-          removeMessageFromCache(queryClient, conversationId, payload.old.id)
-          queryClient.invalidateQueries({ queryKey: ['chat-unread', conversationId] })
-        }
-      )
-      // Modifications (migration 022) : le texte corrigé apparaît en direct.
-      channel.on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const row = payload.new
-          if (!row?.id) return
-          updateMessageInCache(queryClient, conversationId, row.id, { body: row.body, edited_at: row.edited_at })
-        }
-      )
-      // Réactions emoji (migration 025) — dédupliquées face à l'optimiste.
-      channel.on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'chat_reactions', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const r = payload.new
-          if (r?.message_id) addReactionToCache(queryClient, conversationId, r)
-        }
-      )
-      channel.on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'chat_reactions', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const r = payload.old
-          if (r?.message_id) removeReactionFromCache(queryClient, conversationId, r.message_id, r.user_id, r.emoji)
-        }
-      )
-    }
-
-    // Appels (migration 034+) : même topic que la signalisation WebRTC
-    // (CallProvider.joinSignaling ouvre sa propre instance de canal sur ce
-    // topic pendant un appel actif — plusieurs souscriptions au même topic
-    // coexistent sans problème côté Supabase Realtime). Tient à jour
-    // l'onglet Appels du widget (useCalls.useConversationCalls) uniquement
-    // si le widget a déjà chargé ['calls', conversationId] en cache.
-    if (withCalls) {
-      channel.on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'calls', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => appendCallToCache(queryClient, conversationId, payload.new)
-      )
-      channel.on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'calls', filter: `conversation_id=eq.${conversationId}` },
-        (payload) => updateCallInCache(queryClient, conversationId, payload.new.id, payload.new)
-      )
-    }
-
-    // Curseurs de lecture (migration 024) : l'upsert de l'autre participant
-    // arrive en INSERT ou UPDATE — dans les deux cas on rafraîchit le « Vu ».
-    channel.on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'chat_reads', filter: `conversation_id=eq.${conversationId}` },
-      (payload) => {
-        const row = payload.new
-        if (!row?.user_id || row.user_id === user.id) return
-        queryClient.invalidateQueries({ queryKey: ['chat-peer-reads', conversationId] })
-      }
-    )
-
-    channel.on('broadcast', { event: 'typing' }, ({ payload }) => {
-      if (!payload || payload.user_id === user.id) return
-      setPeerTyping({ name: payload.name })
-      clearTimeout(typingTimerRef.current)
-      typingTimerRef.current = setTimeout(() => setPeerTyping(null), 3000)
-    })
-
-    // Les canaux privés exigent un jeton realtime à jour ; supabase-js le
-    // propage automatiquement, on force par sécurité avant la souscription.
-    let cancelled = false
-    Promise.resolve(supabase.realtime.setAuth()).finally(() => {
-      if (cancelled) return
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setConnected(true)
-          if (hadDisconnectRef.current) {
-            // Rattrapage après coupure : des messages ont pu être manqués.
-            hadDisconnectRef.current = false
-            queryClient.invalidateQueries({ queryKey: ['chat-messages', conversationId] })
+    const bind = (channel) => {
+      if (withPostgres) {
+        channel.on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
+          (payload) => onInsertRef.current?.(payload.new)
+        )
+        // Suppressions (REPLICA IDENTITY FULL, migration 021) : le message
+        // disparaît en direct chez l'autre participant.
+        channel.on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
+          (payload) => {
+            if (!payload.old?.id) return
+            removeMessageFromCache(queryClient, conversationId, payload.old.id)
             queryClient.invalidateQueries({ queryKey: ['chat-unread', conversationId] })
           }
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          setConnected(false)
-          hadDisconnectRef.current = true
+        )
+        // Modifications (migration 022) : le texte corrigé apparaît en direct.
+        channel.on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${conversationId}` },
+          (payload) => {
+            const row = payload.new
+            if (!row?.id) return
+            updateMessageInCache(queryClient, conversationId, row.id, { body: row.body, edited_at: row.edited_at })
+          }
+        )
+        // Réactions emoji (migration 025) — dédupliquées face à l'optimiste.
+        channel.on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_reactions', filter: `conversation_id=eq.${conversationId}` },
+          (payload) => {
+            const r = payload.new
+            if (r?.message_id) addReactionToCache(queryClient, conversationId, r)
+          }
+        )
+        channel.on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'chat_reactions', filter: `conversation_id=eq.${conversationId}` },
+          (payload) => {
+            const r = payload.old
+            if (r?.message_id) removeReactionFromCache(queryClient, conversationId, r.message_id, r.user_id, r.emoji)
+          }
+        )
+      }
+
+      // Curseurs de lecture (migration 024) : l'upsert de l'autre participant
+      // arrive en INSERT ou UPDATE — dans les deux cas on rafraîchit le « Vu ».
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_reads', filter: `conversation_id=eq.${conversationId}` },
+        (payload) => {
+          const row = payload.new
+          if (!row?.user_id || row.user_id === user.id) return
+          queryClient.invalidateQueries({ queryKey: ['chat-peer-reads', conversationId] })
         }
+      )
+
+      channel.on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (!payload || payload.user_id === user.id) return
+        setPeerTyping({ name: payload.name })
+        clearTimeout(typingTimerRef.current)
+        typingTimerRef.current = setTimeout(() => setPeerTyping(null), 3000)
       })
+    }
+
+    const handle = acquireChannel(`chat-conv-${conversationId}`, { config: { private: true } }, bind, (status) => {
+      if (status === 'SUBSCRIBED') {
+        setConnected(true)
+        if (hadDisconnectRef.current) {
+          // Rattrapage après coupure : des messages ont pu être manqués.
+          hadDisconnectRef.current = false
+          queryClient.invalidateQueries({ queryKey: ['chat-messages', conversationId] })
+          queryClient.invalidateQueries({ queryKey: ['chat-unread', conversationId] })
+        }
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        setConnected(false)
+        hadDisconnectRef.current = true
+      }
     })
 
-    channelRef.current = channel
+    channelRef.current = handle
     return () => {
-      cancelled = true
       clearTimeout(typingTimerRef.current)
       setPeerTyping(null)
       channelRef.current = null
-      supabase.removeChannel(channel)
+      handle.remove()
     }
-  }, [conversationId, user?.id, withPostgres, withCalls, queryClient]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, user?.id, withPostgres, queryClient]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendTyping = useCallback(() => {
     const now = Date.now()
@@ -721,20 +704,66 @@ export function useOnlineStudents() {
   })
 
   useEffect(() => {
-    const channel = supabase
-      .channel('presence-monitor')
-      .on(
+    const handle = acquireChannel('presence-monitor', undefined, (channel) => {
+      channel.on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_presence' },
         () => queryClient.invalidateQueries({ queryKey: ['online-students'] })
       )
-      .subscribe()
+    })
     return () => {
-      supabase.removeChannel(channel)
+      handle.remove()
     }
   }, [queryClient])
 
   return query
+}
+
+/* Canal de présence PARTAGÉ entre composants : côté apprenante, le widget
+   de chat ET le widget d'appels le lisent en même temps — or un topic ne
+   peut plus avoir qu'un seul canal par client (supabase-js 2.110, voir
+   lib/realtimeChannel.js). Une seule souscription, comptée par référence :
+   le premier composant monté la crée, le dernier démonté la libère. */
+const presenceShared = {
+  handle: null,        // retour d'acquireChannel
+  channel: null,       // canal réel (posé par bind, pour track/untrack)
+  subscribed: false,
+  trackPayload: null,  // se signaler (staff Messagerie) — appliqué dès SUBSCRIBED
+  listeners: new Set(),
+  snapshot: new Map(),
+}
+
+function presenceAcquire(userId) {
+  if (presenceShared.handle) return
+  presenceShared.handle = acquireChannel(
+    // Canal privé (migration 018) : présence réservée aux utilisateurs
+    // authentifiés, invisible pour les visiteurs anonymes.
+    'chat-presence',
+    { config: { private: true, presence: { key: userId } } },
+    (channel) => {
+      presenceShared.channel = channel
+      channel.on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState()
+        presenceShared.snapshot = new Map(Object.entries(state).map(([key, metas]) => [key, metas[0]]))
+        presenceShared.listeners.forEach((listener) => listener(presenceShared.snapshot))
+      })
+    },
+    (status) => {
+      presenceShared.subscribed = status === 'SUBSCRIBED'
+      if (presenceShared.subscribed && presenceShared.trackPayload) {
+        void presenceShared.channel?.track(presenceShared.trackPayload)
+      }
+    }
+  )
+}
+
+function presenceRelease() {
+  if (presenceShared.listeners.size > 0 || !presenceShared.handle) return
+  presenceShared.handle.remove()
+  presenceShared.handle = null
+  presenceShared.channel = null
+  presenceShared.subscribed = false
+  presenceShared.snapshot = new Map()
 }
 
 /** Canal de présence realtime — réservé au STAFF depuis la migration 030
@@ -747,38 +776,32 @@ export function useChatPresence({ trackSelf = false } = {}) {
 
   useEffect(() => {
     if (!user) return
-    // Canal privé (migration 018) : présence réservée aux utilisateurs
-    // authentifiés, invisible pour les visiteurs anonymes.
-    const channel = supabase.channel('chat-presence', {
-      config: { private: true, presence: { key: user.id } },
-    })
-
-    const refresh = () => {
-      const state = channel.presenceState()
-      setOnline(new Map(Object.entries(state).map(([key, metas]) => [key, metas[0]])))
-    }
-
-    channel.on('presence', { event: 'sync' }, refresh)
-
-    let cancelled = false
-    Promise.resolve(supabase.realtime.setAuth()).finally(() => {
-      if (cancelled) return
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED' && trackSelf) {
-          await channel.track({
-            user_id: user.id,
-            name: profile?.name,
-            role: profile?.role === 'apprenante' ? 'apprenante' : 'staff',
-          })
-        }
-      })
-    })
+    const listener = (snapshot) => setOnline(new Map(snapshot))
+    presenceShared.listeners.add(listener)
+    presenceAcquire(user.id)
+    listener(presenceShared.snapshot)
 
     return () => {
-      cancelled = true
-      supabase.removeChannel(channel)
+      presenceShared.listeners.delete(listener)
+      presenceRelease()
     }
-  }, [user?.id, trackSelf, profile?.name, profile?.role]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Se signaler présent (staff Messagerie uniquement) — séparé de la
+  // lecture : le canal partagé survit au démontage de ce seul composant.
+  useEffect(() => {
+    if (!trackSelf || !user) return
+    presenceShared.trackPayload = {
+      user_id: user.id,
+      name: profile?.name,
+      role: profile?.role === 'apprenante' ? 'apprenante' : 'staff',
+    }
+    if (presenceShared.subscribed) void presenceShared.channel?.track(presenceShared.trackPayload)
+    return () => {
+      presenceShared.trackPayload = null
+      if (presenceShared.subscribed) void presenceShared.channel?.untrack()
+    }
+  }, [trackSelf, user?.id, profile?.name, profile?.role]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return online
 }
@@ -939,9 +962,8 @@ export function useStaffChatRealtime() {
 
   useEffect(() => {
     if (!user || !isStaff) return
-    const channel = supabase
-      .channel('chat-staff')
-      .on(
+    const handle = acquireChannel('chat-staff', undefined, (channel) => {
+      channel.on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
         async (payload) => {
@@ -955,7 +977,7 @@ export function useStaffChatRealtime() {
           }
         }
       )
-      .on(
+      channel.on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'chat_messages' },
         (payload) => {
@@ -966,7 +988,7 @@ export function useStaffChatRealtime() {
           }
         }
       )
-      .on(
+      channel.on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_messages' },
         (payload) => {
@@ -978,7 +1000,7 @@ export function useStaffChatRealtime() {
         }
       )
       // Réactions emoji : n'alimente que les fils déjà en cache.
-      .on(
+      channel.on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_reactions' },
         (payload) => {
@@ -988,7 +1010,7 @@ export function useStaffChatRealtime() {
           }
         }
       )
-      .on(
+      channel.on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'chat_reactions' },
         (payload) => {
@@ -998,9 +1020,9 @@ export function useStaffChatRealtime() {
           }
         }
       )
-      .subscribe()
+    })
     return () => {
-      supabase.removeChannel(channel)
+      handle.remove()
     }
   }, [user?.id, isStaff, queryClient]) // eslint-disable-line react-hooks/exhaustive-deps
 }
