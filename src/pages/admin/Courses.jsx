@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, Eye, EyeOff, Trash2 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
@@ -92,7 +92,7 @@ export default function AdminCourses() {
       )}
 
       {!isLoading && courses?.length > 0 && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-3xl border border-border overflow-hidden shadow-card">
 
           {/* Table desktop */}
           <TableShell stickyHeader>

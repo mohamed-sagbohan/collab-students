@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Users, BookOpen, Zap, Target, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { Skeleton } from '../../components/Skeleton'
@@ -186,7 +186,7 @@ export default function AdminAnalytics() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
 
         {/* Activité 7 jours */}
-        <div className="lg:col-span-1 bg-card border border-border rounded-2xl p-5 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-500">
+        <div className="lg:col-span-1 bg-card border border-border rounded-3xl p-5 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-500">
           <h2 className="font-bold text-foreground text-sm mb-4">Activité — 7 derniers jours</h2>
           {loadingDaily ? (
             <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8" />)}</div>
@@ -208,7 +208,7 @@ export default function AdminAnalytics() {
         </div>
 
         {/* Top cours */}
-        <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-500" style={{ animationDelay: '80ms' }}>
+        <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-500" style={{ animationDelay: '80ms' }}>
           <h2 className="font-bold text-foreground text-sm mb-4">Top cours (leçons complétées)</h2>
           {loadingCourses ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
@@ -232,7 +232,7 @@ export default function AdminAnalytics() {
         </div>
 
         {/* Top apprenants */}
-        <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-500" style={{ animationDelay: '160ms' }}>
+        <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 animate-in fade-in slide-in-from-bottom-1 duration-500" style={{ animationDelay: '160ms' }}>
           <h2 className="font-bold text-foreground text-sm mb-4">Apprenants les plus actifs</h2>
           {loadingStudents ? (
             <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>

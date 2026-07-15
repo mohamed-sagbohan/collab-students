@@ -64,7 +64,7 @@ export function TR({ highlight = false, delay, className, children }) {
     <tr
       style={delay != null ? { animationDelay: `${delay}ms` } : undefined}
       className={cn(
-        'even:bg-muted/20 hover:bg-muted/30 transition-colors animate-in fade-in motion-reduce:animate-none',
+        'hover:bg-muted/40 transition-colors animate-in fade-in motion-reduce:animate-none',
         highlight && 'bg-primary/5',
         className
       )}

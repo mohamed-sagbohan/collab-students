@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useId } from 'react'
+﻿import { useState, useEffect, useRef, useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router'
 import { Save, Eye, Code2, Video, Bold, Italic, List, ListOrdered, Heading2, Heading3, Link2, Quote, Info } from 'lucide-react'
@@ -173,7 +173,7 @@ export default function LessonEditor() {
       </h1>
 
       {/* Métadonnées */}
-      <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 mb-4 grid sm:grid-cols-3 gap-4">
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 mb-4 grid sm:grid-cols-3 gap-4">
         <div className="sm:col-span-2">
           <label htmlFor={titleId} className="block text-xs font-semibold text-foreground mb-1.5">Titre de la leçon *</label>
           <input
@@ -199,7 +199,7 @@ export default function LessonEditor() {
       </div>
 
       {/* Éditeur de contenu */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden mb-4">
+      <div className="bg-card border border-border rounded-3xl overflow-hidden mb-4">
         {/* Tabs + toolbar */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border gap-2 flex-wrap">
           {/* Tabs */}

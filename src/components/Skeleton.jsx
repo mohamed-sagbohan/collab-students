@@ -17,7 +17,7 @@ export function SkeletonText({ lines = 3, className = '' }) {
 
 /** Carte factice (listes de cours, panneaux). */
 export function SkeletonCard({ className = '' }) {
-  return <Skeleton className={`h-52 rounded-2xl ${className}`} />
+  return <Skeleton className={`h-52 rounded-3xl ${className}`} />
 }
 
 /** Avatar factice — tailles alignées sur <Avatar>. */

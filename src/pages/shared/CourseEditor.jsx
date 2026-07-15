@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+﻿import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation } from 'react-router'
 import { BookOpen, Plus, Eye, EyeOff, Trash2, Pencil, PlusCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -109,7 +109,7 @@ export default function CourseEditor() {
             <div
               key={course.id}
               style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-              className="animate-in fade-in slide-in-from-bottom-1 bg-card border border-border rounded-2xl p-4 sm:p-5 flex items-center gap-4 hover:border-primary/20 hover:shadow-sm transition-all"
+              className="animate-in fade-in slide-in-from-bottom-1 bg-card border border-border rounded-3xl p-4 sm:p-5 flex items-center gap-4 hover:border-primary/20 hover:shadow-sm transition-all"
             >
               {/* Icône */}
               <div className={`w-10 h-10 ${accent.bg} border ${accent.border} rounded-xl flex items-center justify-center shrink-0`}>

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { BookOpen, Eye, Activity, Users } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -53,6 +53,7 @@ export default function InstructorDashboard() {
     <div>
 
       <PageHeader
+        hero
         eyebrow="Espace formateur"
         title="Tableau de bord"
         description="Vue d'ensemble du catalogue et des apprenants."
@@ -81,7 +82,7 @@ export default function InstructorDashboard() {
       {/* Lien vers le suivi */}
       <Link
         to="/formateur/suivi"
-        className="flex items-center gap-4 bg-card border border-border rounded-2xl p-5 mb-6 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
+        className="flex items-center gap-4 bg-card border border-border rounded-3xl p-5 mb-6 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
       >
         <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
           <Activity className="w-5 h-5 text-primary" />
@@ -111,7 +112,7 @@ export default function InstructorDashboard() {
       )}
 
       {!isLoading && courses?.length > 0 && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-3xl border border-border overflow-hidden shadow-card">
           <div className="px-4 sm:px-6 py-4 border-b border-border">
             <h2 className="font-bold text-foreground text-sm">Catalogue de cours ({courses.length})</h2>
           </div>

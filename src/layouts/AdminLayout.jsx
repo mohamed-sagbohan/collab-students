@@ -59,7 +59,7 @@ function SidebarContent({ profile, logout, onClose, onChangePassword, missedCall
       <div className="p-5 border-b border-border">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/75 rounded-lg flex items-center justify-center shadow-md shadow-primary/25">
               <GraduationCap className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="font-bold text-foreground">LearnIT</span>
@@ -71,7 +71,7 @@ function SidebarContent({ profile, logout, onClose, onChangePassword, missedCall
           )}
         </div>
         {/* Profil */}
-        <div className="flex items-center gap-3 p-3 bg-muted rounded-xl border border-border">
+        <div className="flex items-center gap-3 p-3 bg-muted rounded-2xl border border-border">
           <Avatar name={profile?.name} className="w-9 h-9" />
           <div className="min-w-0">
             <p className="text-xs font-semibold text-foreground truncate leading-none">{profile?.name}</p>

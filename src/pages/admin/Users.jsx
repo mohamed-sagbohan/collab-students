@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { Trash2, Users, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -137,7 +137,7 @@ export default function AdminUsers() {
       )}
 
       {!isLoading && users?.length > 0 && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-3xl border border-border overflow-hidden shadow-card">
 
           {/* Table desktop */}
           <TableShell stickyHeader>

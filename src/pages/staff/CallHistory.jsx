@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Phone, Video, Search, ChevronLeft, ChevronRight, PhoneIncoming, PhoneOutgoing } from 'lucide-react'
 import { useCallContext } from '../../components/calls/CallProvider'
 import { useStaffCalls, STAFF_CALLS_PAGE_SIZE, formatDuration } from '../../hooks/useCalls'
@@ -129,7 +129,7 @@ export default function CallHistory() {
       )}
 
       {!isLoading && calls.length > 0 && (
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-3xl border border-border overflow-hidden shadow-card">
 
           <TableShell stickyHeader>
             <Table>

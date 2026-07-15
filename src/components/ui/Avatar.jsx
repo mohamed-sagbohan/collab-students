@@ -24,7 +24,7 @@ export function Avatar({ name, size = 'md', className }) {
     <span
       aria-hidden="true"
       className={cn(
-        'rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground font-bold shrink-0 select-none',
+        'rounded-full bg-gradient-to-br from-primary to-amber-400 flex items-center justify-center text-primary-foreground font-bold shrink-0 select-none shadow-md shadow-primary/20',
         SIZES[size] ?? SIZES.md,
         className
       )}

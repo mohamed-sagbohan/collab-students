@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { MessageCircle, Search, ArrowLeft, SquarePen, Archive, ArchiveRestore, ChevronLeft, ChevronRight, Phone, Video } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -215,7 +215,7 @@ export default function Messaging() {
       )}
 
       {!isError && (isLoading || conversations.length > 0 || draft) && (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden flex h-[min(44rem,calc(100dvh-13rem))] min-h-[24rem]">
+        <div className="bg-card border border-border rounded-3xl overflow-hidden flex h-[min(44rem,calc(100dvh-13rem))] min-h-[24rem]">
 
           {/* ── Liste des conversations ── */}
           <div

@@ -78,7 +78,7 @@ export function Dialog({ open, onClose, title, description, labelledBy, children
         )}
       >
         {title && (
-          <h2 id={titleId} className="text-lg font-bold text-foreground mb-2">{title}</h2>
+          <h2 id={titleId} className="font-display text-lg font-bold tracking-tight text-foreground mb-2">{title}</h2>
         )}
         {description && (
           <p className="text-sm text-muted-foreground leading-relaxed mb-5">{description}</p>

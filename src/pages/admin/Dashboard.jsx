@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+﻿import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { Users, BookOpen, Clock, TrendingUp, ArrowRight, Activity } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -36,6 +36,7 @@ export default function AdminDashboard() {
     <div>
 
       <PageHeader
+        hero
         eyebrow="Administration"
         title="Vue d'ensemble"
         description="Statistiques en temps réel de la plateforme LearnIT."
@@ -71,7 +72,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <Link
           to="/admin/suivi"
-          className="bg-card rounded-2xl border border-border p-5 sm:p-6 flex items-center gap-4 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group col-span-full sm:col-span-2"
+          className="bg-card rounded-3xl border border-border p-5 sm:p-6 flex items-center gap-4 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group col-span-full sm:col-span-2"
         >
           <div className="w-11 h-11 bg-success/10 border border-success/20 rounded-xl flex items-center justify-center shrink-0">
             <Activity className="w-5 h-5 text-success" aria-hidden="true" />
@@ -87,7 +88,7 @@ export default function AdminDashboard() {
         </Link>
         <Link
           to="/admin/utilisateurs"
-          className="bg-card rounded-2xl border border-border p-5 sm:p-6 flex items-center gap-4 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
+          className="bg-card rounded-3xl border border-border p-5 sm:p-6 flex items-center gap-4 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
         >
           <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
             <Users className="w-5 h-5 text-primary" />
@@ -101,7 +102,7 @@ export default function AdminDashboard() {
 
         <Link
           to="/admin/cours"
-          className="bg-card rounded-2xl border border-border p-5 sm:p-6 flex items-center gap-4 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
+          className="bg-card rounded-3xl border border-border p-5 sm:p-6 flex items-center gap-4 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
         >
           <div className="w-11 h-11 bg-success/10 border border-success/20 rounded-xl flex items-center justify-center shrink-0">
             <BookOpen className="w-5 h-5 text-success" aria-hidden="true" />

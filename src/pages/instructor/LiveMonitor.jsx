@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+﻿import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, Zap, Target, Users, Clock, Wifi, WifiOff, Keyboard, CheckCircle, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -182,7 +182,7 @@ export default function LiveMonitor() {
       </div>
 
       {/* Feed */}
-      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+      <div className="bg-card rounded-3xl border border-border overflow-hidden shadow-card">
         <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between">
           <h2 className="font-bold text-foreground text-sm">Dernières soumissions</h2>
           <span className="text-xs text-muted-foreground">{results?.length ?? 0} résultats</span>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useId } from 'react'
+﻿import { useState, useEffect, useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Save, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, BookOpen } from 'lucide-react'
@@ -146,7 +146,7 @@ export default function CourseForm() {
       </h1>
 
       {/* Formulaire cours */}
-      <div className="bg-card border border-border rounded-2xl p-5 sm:p-6 mb-6 space-y-4">
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 mb-6 space-y-4">
         <div>
           <label htmlFor={titleId} className="block text-xs font-semibold text-foreground mb-1.5">Titre du cours *</label>
           <input
@@ -259,7 +259,7 @@ export default function CourseForm() {
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
             </div>
           ) : lessons.length === 0 ? (
-            <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center">
+            <div className="bg-card border border-dashed border-border rounded-3xl p-8 text-center">
               <BookOpen className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-40" />
               <p className="text-sm text-muted-foreground">Aucune leçon. Commencez par en ajouter une.</p>
             </div>
