@@ -28,7 +28,7 @@ export function StatCard({ icon: Icon, label, value, color = 'text-primary', bg 
   const content = (
     <div
       className={cn(
-        'relative overflow-hidden bg-card rounded-2xl border p-4 sm:p-5 h-full shadow-card',
+        'relative overflow-hidden bg-card rounded-3xl border p-4 sm:p-5 h-full shadow-card',
         border,
         to &&
           'transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-card-hover motion-reduce:transition-none motion-reduce:group-hover:translate-y-0'
@@ -50,7 +50,7 @@ export function StatCard({ icon: Icon, label, value, color = 'text-primary', bg 
         </div>
         {trailing}
       </div>
-      <p className={cn('relative text-2xl sm:text-3xl font-extrabold tabular-nums', color)}>{shown}</p>
+      <p className={cn('relative text-2xl sm:text-3xl font-extrabold font-display tabular-nums', color)}>{shown}</p>
       <p className="relative text-xs text-muted-foreground mt-1 leading-snug">{label}</p>
     </div>
   )

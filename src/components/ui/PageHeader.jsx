@@ -21,7 +21,7 @@ export function PageHeader({ eyebrow, eyebrowIcon: Icon, title, description, act
             {eyebrow}
           </span>
         )}
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">{title}</h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold font-display tracking-tight text-foreground">{title}</h1>
         {description && <p className="text-muted-foreground mt-1 text-sm">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-3 shrink-0">{actions}</div>}

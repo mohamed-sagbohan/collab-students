@@ -4,6 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-display: 'Sora', 'Inter', system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -37,7 +38,7 @@
 
 /* ── MODE CLAIR ──────────────────────────────── */
 :root {
-  --radius: 0.75rem;
+  --radius: 1rem;
 
   --primary: oklch(0.64 0.21 38);
   --primary-foreground: oklch(0.99 0 0);
@@ -342,6 +343,64 @@ html {
   inset: 0;
   background: linear-gradient(105deg, transparent 35%, oklch(1 0 0 / 0.25) 50%, transparent 65%);
   animation: progress-sheen 2.6s ease-in-out infinite;
+}
+
+/* ── Bouton principal « glossy » ────────────────────────────────
+   Dégradé vertical + liseré lumineux interne + ombre portée teintée :
+   le rendu « UI kit » appliqué via la variante primary de Button. */
+.btn-glossy {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--primary) 92%, white),
+    color-mix(in oklch, var(--primary) 90%, black)
+  );
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.25),
+    0 1px 2px oklch(0.2 0.02 260 / 0.25),
+    0 8px 20px -6px color-mix(in oklch, var(--primary) 50%, transparent);
+}
+.btn-glossy:hover {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--primary) 84%, white),
+    color-mix(in oklch, var(--primary) 96%, black)
+  );
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.3),
+    0 2px 4px oklch(0.2 0.02 260 / 0.25),
+    0 14px 28px -8px color-mix(in oklch, var(--primary) 60%, transparent);
+}
+
+/* Panneau plein aux couleurs de la marque (CTA, carte mise en avant) —
+   même dégradé que btn-glossy mais sans état hover. */
+.panel-brand {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklch, var(--primary) 90%, white),
+    color-mix(in oklch, var(--primary) 88%, black)
+  );
+}
+
+/* ── Fond « aurora » ────────────────────────────────────────────
+   Halos radiaux doux (orange marque + bleu info) façon maquettes
+   Figma. Pilotés par les tokens : s'adaptent au thème. */
+.bg-aurora {
+  background-image:
+    radial-gradient(600px 420px at 12% -5%, color-mix(in oklch, var(--primary) 13%, transparent), transparent 70%),
+    radial-gradient(520px 380px at 88% 5%, color-mix(in oklch, var(--info) 9%, transparent), transparent 70%),
+    radial-gradient(720px 480px at 50% 105%, color-mix(in oklch, var(--primary) 7%, transparent), transparent 72%);
+}
+
+/* Texte en dégradé de marque (titres hero, CTA…) */
+.text-gradient {
+  background-image: linear-gradient(
+    92deg,
+    var(--primary) 20%,
+    color-mix(in oklch, var(--primary) 55%, oklch(0.75 0.16 80)) 80%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
 }
 
 /* ── Grille de fond (hero landing) ──────────────────────────────
