@@ -264,7 +264,7 @@ export default function LessonReader() {
         Retour au cours
       </Link>
 
-      <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-3">{lesson?.title}</h1>
+      <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mb-3">{lesson?.title}</h1>
 
       <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
         <Clock className="w-3.5 h-3.5" aria-hidden="true" />
@@ -272,7 +272,7 @@ export default function LessonReader() {
       </p>
 
       {/* Contenu de la leçon */}
-      <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-8">
+      <div className="bg-card border border-border rounded-3xl shadow-card p-6 sm:p-8 mb-8">
         <div
           className="lesson-content"
           dangerouslySetInnerHTML={{ __html: html }}
@@ -280,7 +280,7 @@ export default function LessonReader() {
       </div>
 
       {/* Footer */}
-      <div className="border border-border rounded-2xl p-5 sm:p-6 bg-card">
+      <div className="border border-border rounded-3xl shadow-card p-5 sm:p-6 bg-card">
         {progress?.completed ? (
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-success/10 border border-success/20 rounded-xl flex items-center justify-center shrink-0">
@@ -350,7 +350,7 @@ export default function LessonReader() {
           )}
 
           {lesson.exercises.map((ex) => (
-            <div key={ex.id} className="border border-border rounded-2xl p-5 sm:p-6 bg-card">
+            <div key={ex.id} className="border border-border rounded-3xl shadow-card p-5 sm:p-6 bg-card">
               <ExerciseRunner exerciseId={ex.id} />
             </div>
           ))}

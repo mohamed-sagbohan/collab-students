@@ -131,10 +131,9 @@ export default function StudentDashboard() {
       <OnboardingModal />
 
       {/* Bannière */}
-      <div className="relative rounded-2xl overflow-hidden bg-card border border-border p-6 sm:p-8 mb-6 sm:mb-8 shadow-card">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-transparent pointer-events-none" />
+      <div className="relative rounded-3xl overflow-hidden bg-card bg-aurora border border-border p-6 sm:p-8 mb-6 sm:mb-8 shadow-card">
+        <div className="absolute inset-0 bg-grid pointer-events-none" aria-hidden="true" />
         <div className="absolute -top-10 -right-10 w-48 h-48 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-8 right-24 w-32 h-32 bg-primary/8 rounded-full blur-2xl pointer-events-none" />
         <div className="relative">
           <div className="flex items-center gap-2 flex-wrap mb-3">
             {streak > 0 ? (
@@ -153,7 +152,7 @@ export default function StudentDashboard() {
               </div>
             )}
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2">{profile?.name} 👋</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mb-2">{profile?.name} 👋</h1>
           <p className="text-muted-foreground text-sm mb-5 max-w-sm">Continuez votre apprentissage là où vous vous êtes arrêté.</p>
           <Link to="/cours" className={buttonVariants()}>
             Voir le catalogue <ArrowRight className="w-4 h-4" aria-hidden="true" />
@@ -188,9 +187,9 @@ export default function StudentDashboard() {
               ? `/cours/${resume.courseId}/lecons/${resume.nextLesson.id}`
               : '/cours'
           }
-          className="flex items-center gap-4 bg-card border border-border rounded-2xl p-4 sm:p-5 mb-5 sm:mb-6 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
+          className="flex items-center gap-4 bg-card border border-border rounded-3xl p-4 sm:p-5 mb-5 sm:mb-6 shadow-card hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0 group"
         >
-          <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center shrink-0">
+          <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center shrink-0">
             <PlayCircle className="w-5 h-5 text-primary" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
@@ -239,7 +238,7 @@ export default function StudentDashboard() {
 
       {/* Graphique WPM */}
       {wpmHistory?.length > 0 && (
-        <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 mb-5 sm:mb-6">
+        <div className="bg-card rounded-3xl border border-border shadow-card p-4 sm:p-6 mb-5 sm:mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Zap className="w-4 h-4 text-primary" aria-hidden="true" />
             <p className="font-semibold text-foreground text-sm">Progression en dactylographie</p>
@@ -259,7 +258,7 @@ export default function StudentDashboard() {
       )}
 
       {stats?.completed === 0 && !isLoading && (
-        <div className="bg-card rounded-2xl border border-dashed border-border p-8 sm:p-12 text-center mb-6 sm:mb-8">
+        <div className="bg-card rounded-3xl border border-dashed border-border p-8 sm:p-12 text-center mb-6 sm:mb-8">
           <div className="relative w-fit mx-auto mb-5">
             <div aria-hidden="true" className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl" />
             <div className="relative w-16 h-16 bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 rounded-2xl flex items-center justify-center">
@@ -275,7 +274,7 @@ export default function StudentDashboard() {
       )}
 
       {/* Badges */}
-      <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
+      <div className="bg-card rounded-3xl border border-border shadow-card p-4 sm:p-6">
         <BadgeGrid />
       </div>
 

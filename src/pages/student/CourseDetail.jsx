@@ -110,13 +110,13 @@ export default function CourseDetail() {
       </Link>
 
       {/* En-tête du cours */}
-      <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 mb-6 relative overflow-hidden">
+      <div className="bg-card bg-aurora border border-border rounded-3xl shadow-card p-6 sm:p-8 mb-6 relative overflow-hidden">
         <div className="absolute -top-8 -right-8 w-40 h-40 bg-primary/8 rounded-full blur-2xl pointer-events-none" />
         <div className="relative">
           <div className="w-12 h-12 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center mb-4">
             <BookOpen className="w-6 h-6 text-primary" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-2">{course?.title}</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mb-2">{course?.title}</h1>
           {course?.description && (
             <p className="text-muted-foreground text-sm sm:text-base leading-relaxed">{course.description}</p>
           )}
@@ -125,7 +125,7 @@ export default function CourseDetail() {
 
       {/* Progression + Certificat */}
       {user && totalLessons > 0 && (
-        <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 mb-6">
+        <div className="bg-card border border-border rounded-3xl shadow-card p-4 sm:p-6 mb-6">
           {allDone ? (
             /* ── Cours terminé ── */
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">

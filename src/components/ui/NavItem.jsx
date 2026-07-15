@@ -9,20 +9,20 @@ import { cn } from '@/lib/utils'
  *  - `bottom` : item de la bottom nav mobile (icône + libellé empilés)
  */
 const BASE = {
-  tab: 'inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border-b-2 transition-colors',
-  pill: 'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium border transition-colors',
+  tab: 'inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-colors',
+  pill: 'flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-medium border transition-colors',
   bottom:
-    'flex flex-col items-center justify-center gap-1 flex-1 min-h-11 min-w-11 py-1.5 rounded-lg text-[11px] font-medium transition-colors',
+    'flex flex-col items-center justify-center gap-1 flex-1 min-h-11 min-w-11 py-1.5 rounded-2xl text-[11px] font-medium transition-colors',
 }
 
 const ACTIVE = {
-  tab: 'bg-primary/10 text-primary border-primary',
+  tab: 'bg-primary/10 text-primary',
   pill: 'bg-primary/10 text-primary border-primary/20',
   bottom: 'text-primary',
 }
 
 const INACTIVE = {
-  tab: 'text-muted-foreground border-transparent hover:bg-muted hover:text-foreground',
+  tab: 'text-muted-foreground hover:bg-muted hover:text-foreground',
   pill: 'text-muted-foreground border-transparent hover:bg-muted hover:text-foreground',
   bottom: 'text-muted-foreground hover:text-foreground',
 }

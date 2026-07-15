@@ -92,7 +92,7 @@ export default function MyResults() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Mes résultats</h1>
+        <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">Mes résultats</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Vos scores aux quiz et vos performances de frappe, exercice par exercice.
         </p>

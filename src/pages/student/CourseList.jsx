@@ -79,7 +79,7 @@ export default function CourseList() {
   return (
     <div>
       <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground">Catalogue de cours</h1>
+        <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">Catalogue de cours</h1>
         <p className="text-muted-foreground mt-1 text-sm">Choisissez un cours pour commencer à apprendre.</p>
       </div>
 
@@ -167,7 +167,7 @@ export default function CourseList() {
                 key={course.id}
                 to={`/cours/${course.id}`}
                 style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
-                className="group animate-in fade-in slide-in-from-bottom-2 bg-card border border-border rounded-2xl overflow-hidden shadow-card hover:border-primary/30 hover:-translate-y-1 hover:shadow-card-hover transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                className="group animate-in fade-in slide-in-from-bottom-2 bg-card border border-border rounded-3xl overflow-hidden shadow-card hover:border-primary/30 hover:-translate-y-1 hover:shadow-card-hover transition-all duration-300 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 {/* Header carte */}
                 <div className={`${accent.bg} border-b ${accent.border} p-5 flex items-center justify-between`}>

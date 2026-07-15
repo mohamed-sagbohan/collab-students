@@ -21,11 +21,12 @@ export default function BottomNav() {
 
   return (
     <>
+      {/* Dock flottant façon UI kit : pilule détachée du bord */}
       <nav
         aria-label="Navigation principale"
-        className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-card/95 backdrop-blur-md border-t border-border pb-[env(safe-area-inset-bottom)]"
+        className="fixed bottom-3 inset-x-3 z-40 lg:hidden mb-[env(safe-area-inset-bottom)]"
       >
-        <div className="flex items-stretch h-16 max-w-md mx-auto px-2">
+        <div className="flex items-stretch h-16 max-w-md mx-auto px-3 py-1.5 rounded-full border border-border/70 bg-card/90 backdrop-blur-xl shadow-card-hover">
           <NavItem to="/dashboard" icon={LayoutDashboard} label="Accueil" variant="bottom" />
           <NavItem to="/cours" icon={BookOpen} label="Cours" variant="bottom" />
           <button type="button" onClick={() => setSearchOpen(true)} className={actionClass}>
