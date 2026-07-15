@@ -9,6 +9,7 @@ import LoadingScreen from '../components/LoadingScreen'
 // Import direct (pas de lazy) : la page d'erreur doit s'afficher même
 // quand le chargement d'un chunk est précisément ce qui a échoué.
 import RouteErrorPage from '../components/RouteErrorPage'
+import SeoRoot from '../components/SeoRoot'
 
 /**
  * Code splitting : chaque page est un chunk séparé — une apprenante ne
@@ -136,6 +137,8 @@ export const router = createBrowserRouter([
     // ici au lieu de l'écran par défaut de react-router (stack trace
     // brute « Unexpected Application Error! »).
     errorElement: <RouteErrorPage />,
+    // SeoRoot ajuste title / canonical / robots à chaque changement de route.
+    element: <SeoRoot />,
     children: routes,
   },
 ])
