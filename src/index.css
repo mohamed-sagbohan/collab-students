@@ -415,6 +415,15 @@ html {
   mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, black 25%, transparent 78%);
 }
 
+/* ── Flottement doux (nudge du guide, première visite) ─────────── */
+@keyframes nudge-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+.nudge-bob {
+  animation: nudge-bob 2.2s ease-in-out infinite;
+}
+
 /* Confettis (réussite d'exercice) — voir ui/Confetti.jsx */
 @keyframes confetti-fall {
   0% {

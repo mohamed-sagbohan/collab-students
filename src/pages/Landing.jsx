@@ -3,6 +3,7 @@ import { BookOpen, Zap, TrendingUp, ArrowRight, CheckCircle, GraduationCap, Spar
 import { ThemeToggle } from '../components/ThemeToggle'
 import Reveal from '../components/Reveal'
 import TypingDemo from '../components/landing/TypingDemo'
+import GuideNudge from '../components/landing/GuideNudge'
 import { buttonVariants } from '../components/ui/Button'
 import { Avatar } from '../components/ui/Avatar'
 import { cn } from '../lib/utils'
@@ -44,6 +45,9 @@ const features = [
 export default function Landing() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+
+      {/* Coach-mark de première visite → guide d'utilisation */}
+      <GuideNudge />
 
       {/* ── Header — barre pilule flottante ── */}
       <header className="fixed top-0 left-0 right-0 z-50 px-3 sm:px-4 pt-3">
