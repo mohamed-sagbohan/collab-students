@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link } from 'react-router'
 import { CheckCircle, UserPlus } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -54,7 +54,7 @@ export default function Register() {
     <>
       <div className="mb-8">
         <IconBadge icon={UserPlus} className="mb-5" />
-        <h1 className="text-2xl font-bold text-foreground">Créer un compte</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Créer un compte</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">Gratuit · Sans carte bancaire · En 30 secondes</p>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link } from 'react-router'
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -59,7 +59,7 @@ export default function ForgotPassword() {
     <>
       <div className="mb-8">
         <IconBadge icon={Mail} className="mb-5" />
-        <h1 className="text-2xl font-bold text-foreground">Mot de passe oublié ?</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Mot de passe oublié ?</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">
           Saisissez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe.
         </p>

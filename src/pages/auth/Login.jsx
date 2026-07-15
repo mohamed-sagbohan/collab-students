@@ -1,4 +1,4 @@
-import { useState, useId } from 'react'
+﻿import { useState, useId } from 'react'
 import { useNavigate, Link } from 'react-router'
 import { LogIn } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -47,7 +47,7 @@ export default function Login() {
     <>
       <div className="mb-8">
         <IconBadge icon={LogIn} className="mb-5" />
-        <h1 className="text-2xl font-bold text-foreground">Bon retour !</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Bon retour !</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">Connectez-vous pour reprendre votre progression.</p>
       </div>
 

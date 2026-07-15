@@ -18,11 +18,10 @@ export default function AuthLayout() {
       <SkipLink />
 
       {/* Panneau gauche — branding */}
-      <div className="hidden lg:flex w-[45%] bg-card border-r border-border flex-col justify-between p-12 relative overflow-hidden shrink-0">
-        {/* Glow */}
-        <div className="absolute top-0 left-0 right-0 h-64 bg-primary/5 pointer-events-none" />
+      <div className="hidden lg:flex w-[45%] bg-card bg-aurora border-r border-border flex-col justify-between p-12 relative overflow-hidden shrink-0">
+        {/* Quadrillage + glow */}
+        <div className="absolute inset-0 bg-grid pointer-events-none" aria-hidden="true" />
         <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
         <Link to="/" className="flex items-center gap-3 relative">
           <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
@@ -36,9 +35,9 @@ export default function AuthLayout() {
             <Sparkles className="w-3.5 h-3.5" />
             Plateforme 100% gratuite
           </div>
-          <blockquote className="text-foreground text-2xl font-bold leading-snug mb-8">
+          <blockquote className="font-display text-foreground text-3xl font-bold tracking-tight leading-snug mb-8">
             "Apprendre l'informatique,<br />
-            <span className="text-primary">c'est apprendre à penser autrement."</span>
+            <span className="text-gradient">c'est apprendre à penser autrement."</span>
           </blockquote>
           <ul className="space-y-3.5">
             {highlights.map((item) => (
@@ -56,7 +55,7 @@ export default function AuthLayout() {
       </div>
 
       {/* Panneau droit — formulaire */}
-      <div className="flex-1 flex flex-col min-h-screen bg-background">
+      <div className="flex-1 flex flex-col min-h-screen bg-background bg-aurora">
 
         {/* Header mobile */}
         <div className="flex items-center justify-between px-5 pt-5 lg:hidden">
@@ -70,7 +69,10 @@ export default function AuthLayout() {
         </div>
 
         <main id="main-content" tabIndex={-1} className="flex-1 flex items-center justify-center px-5 sm:px-8 py-8 sm:py-12 focus:outline-none">
-          <div key={location.pathname} className="w-full max-w-md animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div
+            key={location.pathname}
+            className="w-full max-w-md bg-card border border-border rounded-3xl shadow-card p-6 sm:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300"
+          >
             <Outlet />
           </div>
         </main>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router'
 import { KeyRound, CheckCircle, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
@@ -128,7 +128,7 @@ export default function ResetPassword() {
     <>
       <div className="mb-8">
         <IconBadge icon={KeyRound} className="mb-5" />
-        <h1 className="text-2xl font-bold text-foreground">Nouveau mot de passe</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Nouveau mot de passe</h1>
         <p className="text-muted-foreground mt-1.5 text-sm">
           Choisissez un mot de passe sécurisé d'au moins 6 caractères.
         </p>
