@@ -38,4 +38,13 @@ await page.goto('http://localhost:4173/', { waitUntil: 'load' })
   par `vite preview` — valider le JSON, tester les en-têtes en prod après deploy.
 - `vite preview` sert `dist/` : rebuilder avant de re-vérifier un changement.
 - Les e2e Playwright officiels : `npm run test:e2e` (mais c'est le rôle de CI,
-  pas de la vérification runtime).
+  pas de la vérification runtime). Ils dépendent tous d'un projet `setup` qui
+  se connecte via le formulaire → bloqué par Turnstile ; lancer uniquement les
+  specs publiques avec `--no-deps` et un `--grep` sur leurs titres.
+- **Ne pas écrire de fichiers à la racine du projet pendant que `npm run dev`
+  tourne** : le watcher chokidar peut crasher sur EBUSY (verrou Windows) et
+  emporter le serveur. Écrire les scripts jetables AVANT de lancer le serveur,
+  ou utiliser l'outil Write (pas `Set-Content`).
+- Captures d'écran : émuler `reducedMotion: 'reduce'` (les Reveal/animate-in
+  s'affichent sinon à opacité 0 sous fullPage) ; ne JAMAIS injecter
+  `animation-play-state: paused`.
