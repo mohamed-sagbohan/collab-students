@@ -6,6 +6,7 @@ import {
 import { ThemeToggle } from '../components/ThemeToggle'
 import Reveal from '../components/Reveal'
 import { buttonVariants } from '../components/ui/Button'
+import { cn } from '../lib/utils'
 
 /* ────────────────────────────────────────────────────────────────
    Contenu du guide — MODIFIEZ ICI les étapes et astuces :
@@ -142,9 +143,9 @@ export default function Guide() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
 
-      {/* ── Header ── */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      {/* ── Header — barre pilule flottante (cohérent avec la landing) ── */}
+      <header className="fixed top-0 left-0 right-0 z-50 px-3 sm:px-4 pt-3">
+        <div className="max-w-4xl mx-auto h-14 px-4 sm:px-5 flex items-center justify-between gap-3 rounded-full border border-border/60 bg-background/75 backdrop-blur-xl shadow-card">
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/75 rounded-lg flex items-center justify-center shadow-lg shadow-primary/30">
               <GraduationCap className="w-4 h-4 text-primary-foreground" />
@@ -165,10 +166,10 @@ export default function Guide() {
         </div>
       </header>
 
-      <main className="flex-1 pt-16">
+      <main className="flex-1 pt-[4.25rem]">
 
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden">
+        <section className="relative overflow-hidden bg-aurora">
           <div className="absolute inset-0 bg-grid pointer-events-none" aria-hidden="true" />
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-10 sm:pb-14 text-center">
@@ -176,9 +177,9 @@ export default function Guide() {
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               Guide d'utilisation
             </div>
-            <h1 className="text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight mb-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
+            <h1 className="font-display text-3xl sm:text-5xl font-extrabold text-foreground tracking-tight mb-4 animate-in fade-in slide-in-from-bottom-3 duration-500">
               Bien démarrer sur
-              <span className="bg-gradient-to-r from-primary via-primary to-amber-500 bg-clip-text text-transparent"> LearnIT</span>
+              <span className="text-gradient"> LearnIT</span>
             </h1>
             <p className="text-muted-foreground sm:text-lg max-w-xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom-3 duration-500">
               De la création de votre compte à votre premier certificat : suivez ces
@@ -223,7 +224,7 @@ export default function Guide() {
                 <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1.5">
                   Étape {i + 1} sur {SECTIONS.length}
                 </p>
-                <h2 className="text-xl sm:text-2xl font-extrabold text-foreground mb-2 flex items-center gap-2.5">
+                <h2 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-foreground mb-2 flex items-center gap-2.5">
                   <span className="sm:hidden w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0" aria-hidden="true">
                     <Icon className="w-4.5 h-4.5 text-primary" />
                   </span>
@@ -259,23 +260,28 @@ export default function Guide() {
 
         {/* ── CTA final ── */}
         <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-16 sm:pb-24">
-          <Reveal className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-card border border-border p-8 sm:p-12 text-center shadow-card">
-            <div className="absolute inset-0 bg-grid pointer-events-none" aria-hidden="true" />
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
+          <Reveal className="relative rounded-3xl sm:rounded-[2.5rem] overflow-hidden panel-brand p-8 sm:p-12 text-center">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-80 h-40 bg-white/20 rounded-full blur-3xl pointer-events-none" aria-hidden="true" />
             <div className="relative">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground mb-3">
+              <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-primary-foreground mb-3">
                 Prêt à vous lancer ?
               </h2>
-              <p className="text-muted-foreground mb-7 max-w-md mx-auto text-sm sm:text-base">
+              <p className="text-primary-foreground/85 mb-7 max-w-md mx-auto text-sm sm:text-base">
                 Vous savez maintenant tout ce qu'il faut. La première étape ne prend qu'une minute.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Link to="/register" className={buttonVariants({ size: 'lg' })}>
+                <Link
+                  to="/register"
+                  className={cn(
+                    buttonVariants({ variant: 'secondary', size: 'lg' }),
+                    'bg-white text-primary border-white hover:bg-white/90 hover:border-white font-bold shadow-xl'
+                  )}
+                >
                   Créer mon compte <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </Link>
                 <Link
                   to="/login"
-                  className="inline-flex items-center justify-center gap-2 border border-border text-foreground px-6 py-3.5 rounded-xl font-medium text-sm hover:bg-muted transition-colors"
+                  className="inline-flex items-center justify-center gap-2 border border-white/40 text-primary-foreground px-7 h-12 rounded-full font-medium text-sm hover:bg-white/10 transition-colors"
                 >
                   J'ai déjà un compte
                 </Link>
